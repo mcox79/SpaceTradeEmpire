@@ -125,6 +125,7 @@ public static class ContentRegistryLoader
         "    { \"id\": \"utility_scanner_array_t2\" },\n" +
         "    { \"id\": \"weapon_autocannon_t2\", \"base_damage\": 16 },\n" +
         "    { \"id\": \"weapon_cannon_mk1\", \"base_damage\": 12 },\n" +
+        "    { \"id\": \"weapon_cannon_mk2\", \"base_damage\": 15 },\n" +
         "    { \"id\": \"weapon_gauss_cannon_t2\", \"base_damage\": 21 },\n" +
         "    { \"id\": \"weapon_lattice_pulse\", \"base_damage\": 8 },\n" +
         "    { \"id\": \"weapon_laser_mk1\", \"base_damage\": 10 },\n" +

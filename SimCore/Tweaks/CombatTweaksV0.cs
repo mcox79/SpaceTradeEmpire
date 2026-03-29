@@ -68,8 +68,9 @@ public static class CombatTweaksV0
     // Attrition resolver terminates at this round count and declares Draw if both fleets still alive.
     public const int StrategicMaxRounds = 50;
 
-    // GATE.S5.COMBAT_RES.SYSTEM.001: Flee logic — minimum rounds before flee is possible.
-    public const int FleeMinRounds = 3;
+    // GATE.S5.COMBAT_RES.SYSTEM.001 + GATE.T66.COMBAT.FIGHT_EXTEND.001: Flee logic.
+    // GATE.T66: Raised 3→5 so fights last at least 5 volleys (creates tension beats).
+    public const int FleeMinRounds = 5;
 
     // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Heat accumulation model.
     // Int-based fixed-point: HeatCapacity 1000 = max heat before overheat penalties.

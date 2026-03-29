@@ -27,6 +27,15 @@ var _star_market_breadth: Dictionary = {}  # star_id -> int (cached goods count)
 
 # Shared time accumulator for ambient animations
 var _ambient_time: float = 0.0
+# GATE.T66.PERF.FPS_OPTIMIZE.001: Pre-computed region colors (avoids O(N^2) per-frame).
+var _region_color_by_id: Dictionary = {}
+# GATE.T66.PERF.FPS_OPTIMIZE.001: Heat update throttle (4Hz is enough, heat changes once/sec).
+var _heat_frame_counter: int = 0
+const HEAT_UPDATE_INTERVAL: int = 15  # every 15 frames ≈ 4Hz at 60fps
+# GATE.T66.PERF.FPS_OPTIMIZE.001: Cache player star ID to avoid GetGalaxySnapshotV0 per frame.
+var _cached_player_star_id: String = ""
+var _player_star_check_counter: int = 0
+const PLAYER_STAR_CHECK_INTERVAL: int = 30  # every 30 frames ≈ 2Hz
 
 # GATE.T47.HAVEN.VISUAL_TIERS.001: Haven Precursor visual geometry
 var _haven_visual_nodes: Array[Node3D] = []
@@ -77,6 +86,11 @@ func _draw_galaxy(sim):
 	var region_by_id: Dictionary = {}
 	for star in sim.galaxy_map.stars:
 		region_by_id[star.id] = star.get("region", 0)
+	# GATE.T66.PERF.FPS_OPTIMIZE.001: Pre-compute region colors (avoids O(N) scan per star per frame).
+	_region_color_by_id.clear()
+	for star in sim.galaxy_map.stars:
+		var region: int = star.get("region", 0)
+		_region_color_by_id[star.id] = REGION_COLORS[min(region, REGION_COLORS.size() - 1)]
 
 	for star in sim.galaxy_map.stars:
 		var s = MeshInstance3D.new()
@@ -237,23 +251,28 @@ func _process(delta):
 	_ambient_time += delta
 
 	# HEAT UPDATE + GATE.T47.AMBIENT.PROSPERITY_TIERS.001: prosperity emission modulation
-	for star_id in star_meshes.keys():
-		var heat = sim.info.get_node_heat(star_id)
-		var heat_factor = clamp(heat / 50.0, 0.0, 1.0)
-		var base_col: Color = _get_region_color(star_id, sim)
-		var target_color = base_col.lerp(Color(1.0, 0.0, 0.0), heat_factor)
-		var mat = _heat_materials[star_id]
-		mat.albedo_color = target_color
-		mat.emission = target_color
+	# GATE.T66.PERF.FPS_OPTIMIZE.001: Throttle heat update to ~4Hz (heat changes once/sec).
+	_heat_frame_counter += 1
+	if _heat_frame_counter >= HEAT_UPDATE_INTERVAL:
+		_heat_frame_counter = 0
+		for star_id in star_meshes.keys():
+			var heat = sim.info.get_node_heat(star_id)
+			var heat_factor = clamp(heat / 50.0, 0.0, 1.0)
+			# GATE.T66.PERF.FPS_OPTIMIZE.001: Dict lookup replaces O(N) linear scan.
+			var base_col: Color = _region_color_by_id.get(star_id, Color(0.0, 0.5, 1.0))
+			var target_color = base_col.lerp(Color(1.0, 0.0, 0.0), heat_factor)
+			var mat = _heat_materials[star_id]
+			mat.albedo_color = target_color
+			mat.emission = target_color
 
-		# GATE.T47.AMBIENT.PROSPERITY_TIERS.001: modulate emission by market breadth
-		var breadth: int = _star_market_breadth.get(star_id, 0)
-		var prosperity_mult: float = 0.5  # dim default
-		if breadth >= 6:
-			prosperity_mult = 2.0
-		elif breadth >= 3:
-			prosperity_mult = 1.0
-		mat.emission_energy_multiplier = (1.0 + (heat_factor * 2.0)) * prosperity_mult
+			# GATE.T47.AMBIENT.PROSPERITY_TIERS.001: modulate emission by market breadth
+			var breadth: int = _star_market_breadth.get(star_id, 0)
+			var prosperity_mult: float = 0.5  # dim default
+			if breadth >= 6:
+				prosperity_mult = 2.0
+			elif breadth >= 3:
+				prosperity_mult = 1.0
+			mat.emission_energy_multiplier = (1.0 + (heat_factor * 2.0)) * prosperity_mult
 
 	# GATE.T47.AMBIENT.SHUTTLE_TRAFFIC.001: animate shuttle orbits
 	_process_shuttles_v0(delta)
@@ -281,16 +300,21 @@ func _process(delta):
 
 	# GATE.S1.VISUAL_POLISH.GALAXY_MAP.001: current system highlight with pulse
 	_pulse_time += delta
-	var new_player_star_id: String = ""
-	var bridge = get_node_or_null("/root/SimBridge")
-	if bridge:
-		var snap = bridge.call("GetGalaxySnapshotV0")
-		if snap and snap.has("player_current_node_id"):
-			new_player_star_id = snap["player_current_node_id"]
-
-	# Fallback: use GDScript player state if SimBridge unavailable
-	if new_player_star_id == "" and game_manager.player:
-		new_player_star_id = game_manager.player.current_node_id
+	# GATE.T66.PERF.FPS_OPTIMIZE.001: Throttle player star check to ~2Hz (was every frame).
+	# Player only changes system on lane arrival (once every few seconds).
+	var new_player_star_id: String = _cached_player_star_id
+	_player_star_check_counter += 1
+	if _player_star_check_counter >= PLAYER_STAR_CHECK_INTERVAL:
+		_player_star_check_counter = 0
+		var bridge = get_node_or_null("/root/SimBridge")
+		if bridge:
+			var snap = bridge.call("GetGalaxySnapshotV0")
+			if snap and snap.has("player_current_node_id"):
+				new_player_star_id = snap["player_current_node_id"]
+		# Fallback: use GDScript player state if SimBridge unavailable
+		if new_player_star_id == "" and game_manager.player:
+			new_player_star_id = game_manager.player.current_node_id
+		_cached_player_star_id = new_player_star_id
 
 	# Update highlight rings: show only the player's current star
 	if new_player_star_id != _player_star_id:
@@ -895,6 +919,12 @@ func _process_discovery_markers_v0(_delta: float) -> void:
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge == null or not bridge.has_method("GetDiscoverySnapshotV0"):
 		return
+
+	# Gate discovery markers behind scanner tier — no markers until player has scanner.
+	if bridge.has_method("GetScannerTierV0"):
+		var tier: int = bridge.call("GetScannerTierV0")
+		if tier <= 0:
+			return
 
 	# Refresh markers for all visited star nodes
 	for star_id in star_meshes:

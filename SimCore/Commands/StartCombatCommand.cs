@@ -41,5 +41,8 @@ public sealed class StartCombatCommand : ICommand
 		if (state.CombatLogs.Count >= 10)
 			state.CombatLogs.RemoveAt(0);
 		state.CombatLogs.Add(log);
+
+		// fh_14: Track player decisions for FO silence fallback.
+		if (state.FirstOfficer != null) state.FirstOfficer.DecisionsSinceLastLine++;
 	}
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using SimCore.Content;
 using SimCore.Entities;
 using SimCore.Tweaks;
 
@@ -143,17 +144,45 @@ public static class NpcFleetCombatSystem
                 _ => FleetSeedTweaksV0.TraderSpeed,
             };
 
+            // GATE.T67.COMBAT.RESPAWN_STATS.001: Re-derive ship class and combat stats on respawn.
+            // Previously respawned fleets had HullHp=0, no weapons, no ShipClassId — instant kills.
+            string shipClassId = FleetPopulationTweaksV0.PickShipClass(entry.OwnerId, entry.FleetId, entry.Role);
+            var classDef = ShipClassContentV0.GetById(shipClassId);
+            int hull = classDef?.CoreHull ?? CombatTweaksV0.AiHullHpMax;
+            int shield = classDef?.BaseShield ?? CombatTweaksV0.AiShieldHpMax;
+            int fuel = classDef?.BaseFuelCapacity ?? NpcShipTweaksV0.DefaultFuelCapacity;
+            const int STRUCT_ZONE_COUNT = 4; // STRUCTURAL: 4 zone facings (Fore/Port/Starboard/Aft)
+            int[] zoneArmor = classDef != null ? (int[])classDef.BaseZoneArmor.Clone() : new int[STRUCT_ZONE_COUNT];
+            int[] zoneArmorMax = classDef != null ? (int[])classDef.BaseZoneArmor.Clone() : new int[STRUCT_ZONE_COUNT];
+
+            string weaponId = entry.Role == FleetRole.Patrol
+                ? WellKnownModuleIds.WeaponCannonMk1
+                : WellKnownModuleIds.WeaponLaserMk1;
+
             var fleet = new Fleet
             {
                 Id = entry.FleetId,
                 OwnerId = entry.OwnerId,
                 Role = entry.Role,
+                ShipClassId = shipClassId,
                 CurrentNodeId = entry.HomeNodeId,
                 Speed = speed,
                 State = FleetState.Idle,
-                FuelCapacity = NpcShipTweaksV0.DefaultFuelCapacity,
-                FuelCurrent = NpcShipTweaksV0.DefaultFuelCapacity,
+                FuelCapacity = fuel,
+                FuelCurrent = fuel,
+                HullHp = hull,
+                HullHpMax = hull,
+                ShieldHp = shield,
+                ShieldHpMax = shield,
+                ZoneArmorHp = zoneArmor,
+                ZoneArmorHpMax = zoneArmorMax,
             };
+            fleet.Slots.Add(new ModuleSlot
+            {
+                SlotId = "npc_weapon_0",
+                SlotKind = SlotKind.Weapon,
+                InstalledModuleId = weaponId,
+            });
             state.Fleets[fleet.Id] = fleet;
             respawned.Add(i);
         }

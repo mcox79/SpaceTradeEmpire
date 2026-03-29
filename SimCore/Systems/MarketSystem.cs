@@ -130,11 +130,19 @@ public static class MarketSystem
     }
 
     // GATE.T52.ECON.TRADE_DIVERSITY.001: Decay all recent-trade dampening entries.
+    // GATE.T67.ECON.MARGIN_CURVE.001: Experienced traders get faster decay (inverted-U margin curve).
     private static void DecayRecentTradeDampening(SimState state)
     {
         if (state.PlayerRecentTradeDampen.Count == 0) return;
 
         int decayPerTick = Math.Max(1, MarketTweaksV0.RecentTradeDampenBps / MarketTweaksV0.RecentTradeDecayTicks);
+
+        // GATE.T67.ECON.MARGIN_CURVE.001: Experienced traders — dampening decays faster.
+        if (state.PlayerStats != null
+            && state.PlayerStats.NodesVisited >= MarketTweaksV0.ExperiencedTraderNodeThreshold)
+        {
+            decayPerTick *= MarketTweaksV0.ExperiencedDampenDecayMultiplier;
+        }
         var keysToRemove = new System.Collections.Generic.List<string>();
         foreach (var key in state.PlayerRecentTradeDampen.Keys)
         {
@@ -149,13 +157,32 @@ public static class MarketSystem
             state.PlayerRecentTradeDampen.Remove(key);
     }
 
-    // GATE.T52.ECON.TRADE_DIVERSITY.001: Record a player trade for margin dampening.
+    // GATE.T67.ECON.ROUTE_DECAY.001: Record a player trade with exponential penalty scaling.
+    // After ExponentialPenaltyThreshold repeats, dampening grows quadratically.
     public static void RecordPlayerTrade(SimState state, string marketId, string goodId)
     {
         string key = $"{marketId}|{goodId}";
         state.PlayerRecentTradeDampen.TryGetValue(key, out int current);
-        int next = current + MarketTweaksV0.RecentTradeDampenBps;
-        state.PlayerRecentTradeDampen[key] = Math.Min(next, MarketTweaksV0.RecentTradeMaxDampenBps);
+
+        // Count how many times this route has been traded (derive from accumulated dampening).
+        int repeatCount = MarketTweaksV0.RecentTradeDampenBps > 0
+            ? current / MarketTweaksV0.RecentTradeDampenBps + 1
+            : 1;
+
+        int baseDampen = MarketTweaksV0.RecentTradeDampenBps;
+
+        // GATE.T67: Exponential penalty after threshold repeats.
+        if (repeatCount > MarketTweaksV0.ExponentialPenaltyThreshold)
+        {
+            int excess = repeatCount - MarketTweaksV0.ExponentialPenaltyThreshold;
+            baseDampen += excess * excess * MarketTweaksV0.ExponentialPenaltyBpsPerSq;
+        }
+
+        int next = current + baseDampen;
+        // Cap dampening — always leave margin floor per MinSellMarginBps.
+        int maxCap = MarketTweaksV0.RecentTradeMaxDampenBps + MarketTweaksV0.ExponentialPenaltyBpsPerSq * MarketTweaksV0.ExponentialPenaltyThreshold;
+        if (maxCap > MarketTweaksV0.AbsoluteDampenCapBps) maxCap = MarketTweaksV0.AbsoluteDampenCapBps;
+        state.PlayerRecentTradeDampen[key] = Math.Min(next, maxCap);
     }
 
     // GATE.T52.ECON.TRADE_DIVERSITY.001: Get current dampening for a market+good in bps.
@@ -207,6 +234,43 @@ public static class MarketSystem
             return (int)Math.Max(1, price - adjustment);
         else
             return (int)(price + adjustment);
+    }
+
+    // GATE.T66.ECON.EXPLORATION_INCENTIVE.001: Get first-visit bonus for a station.
+    // Returns positive bps if this station was recently discovered (first N trades).
+    // Uses PlayerStationTradeCount — stations with 0 trades are newly discovered.
+    public static int GetFirstVisitBonusBps(SimState state, string marketId)
+    {
+        if (state is null || string.IsNullOrEmpty(marketId)) return 0;
+        // Check if the node for this market was recently visited.
+        string? nodeId = FindNodeForMarket(state, marketId);
+        if (nodeId is null) return 0;
+        // Only count if this is a "new" station — trade count below threshold.
+        state.PlayerStationTradeCount.TryGetValue(marketId, out int tradeCount);
+        if (tradeCount >= MarketTweaksV0.FirstVisitBonusTrades) return 0;
+        int remaining = MarketTweaksV0.FirstVisitBonusTrades - tradeCount;
+        return MarketTweaksV0.FirstVisitBonusBps * remaining / MarketTweaksV0.FirstVisitBonusTrades;
+    }
+
+    // GATE.T66.ECON.MARGIN_FLOOR.001: Get fresh stock premium bonus for a station.
+    // Returns positive bps for the first N trades at a station, 0 after threshold.
+    // Factorio pattern: early interactions are more rewarding to build confidence.
+    public static int GetFreshStockPremiumBps(SimState state, string marketId)
+    {
+        if (state is null || string.IsNullOrEmpty(marketId)) return 0;
+        state.PlayerStationTradeCount.TryGetValue(marketId, out int count);
+        if (count >= MarketTweaksV0.FreshStockPremiumTrades) return 0;
+        // Linear decay: full premium on trade 0, 2/3 on trade 1, 1/3 on trade 2.
+        int remaining = MarketTweaksV0.FreshStockPremiumTrades - count;
+        return MarketTweaksV0.FreshStockPremiumBps * remaining / MarketTweaksV0.FreshStockPremiumTrades;
+    }
+
+    // GATE.T66.ECON.MARGIN_FLOOR.001: Record a trade at a station for fresh stock tracking.
+    public static void RecordStationTrade(SimState state, string marketId)
+    {
+        if (state is null || string.IsNullOrEmpty(marketId)) return;
+        state.PlayerStationTradeCount.TryGetValue(marketId, out int count);
+        state.PlayerStationTradeCount[marketId] = count + 1;
     }
 
     // GATE.T61.MARKET.DEPTH_MODEL.001: Per-tick depth recovery + volatility decay.
@@ -644,5 +708,34 @@ public static class MarketSystem
         }
 
         return multiplier;
+    }
+
+    // GATE.T68.PACING.EVENT_INTERRUPTS.001: Inject market perturbation to break monotone streaks.
+    // When player trades the same good at the same station 20+ times consecutively,
+    // inject extra dampening at the current market to make the route clearly suboptimal.
+    // This forces gameplay variety by changing the economic landscape.
+    public static void InjectMonotoneInterrupt(SimState state)
+    {
+        if (state.PlayerStats == null) return;
+        if (state.PlayerStats.ConsecutiveActionStreak < NarrativeTweaksV0.EventInterruptStreakThreshold) return;
+        // Only fire once at the threshold crossing (modulo check).
+        if (state.PlayerStats.ConsecutiveActionStreak % NarrativeTweaksV0.EventInterruptStreakThreshold != 0) return;
+
+        // Find the player's current market and inject dampening on their most-traded good.
+        string? playerNode = state.PlayerLocationNodeId;
+        if (string.IsNullOrEmpty(playerNode)) return;
+        if (!state.Markets.TryGetValue(playerNode, out _)) return;
+
+        // Boost dampening on all goods at this market to push player to explore.
+        int shiftBps = NarrativeTweaksV0.EventInterruptPriceShiftBps;
+        foreach (var key in state.PlayerRecentTradeDampen.Keys)
+        {
+            if (key.StartsWith(playerNode, StringComparison.Ordinal))
+            {
+                state.PlayerRecentTradeDampen[key] = Math.Min(
+                    state.PlayerRecentTradeDampen[key] + shiftBps,
+                    MarketTweaksV0.AbsoluteDampenCapBps);
+            }
+        }
     }
 }

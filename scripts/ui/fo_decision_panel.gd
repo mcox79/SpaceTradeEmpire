@@ -251,8 +251,8 @@ func _on_option_selected(idx: int) -> void:
 		_active_decision_id = ""
 		# Toast confirmation.
 		var toast_mgr = get_node_or_null("/root/ToastManager")
-		if toast_mgr and toast_mgr.has_method("show_toast"):
-			toast_mgr.call("show_toast", "Decision resolved.", "fo")
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+			toast_mgr.call("show_priority_toast", "Decision resolved.", "fo")
 
 
 func _risk_text(level: int) -> String:

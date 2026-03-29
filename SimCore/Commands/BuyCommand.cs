@@ -94,6 +94,9 @@ public class BuyCommand : ICommand
 		int sampleCost = unitPrice;
 		sampleCost += MarketSystem.ComputeTariffCredits(sampleCost, tariffBps);
 		sampleCost += MarketSystem.ComputeTransactionFeeCredits(state, sampleCost);
+		// GATE.T68.ECON.PERCENTAGE_SINKS.001: Include trade tax in affordability check.
+		if (FleetUpkeepTweaksV0.TradeTaxBps > 0)
+			sampleCost += (int)Math.Max(1, (long)sampleCost * FleetUpkeepTweaksV0.TradeTaxBps / 10000);
 		int effectiveUnitCost = Math.Max(1, sampleCost);
 		qty = (int)Math.Min(qty, state.PlayerCredits / effectiveUnitCost);
 		if (qty <= 0) return;
@@ -107,6 +110,14 @@ public class BuyCommand : ICommand
 		// GATE.X.MARKET_PRICING.FEE_WIRE.001: Deduct transaction fee.
 		totalCost += MarketSystem.ComputeTransactionFeeCredits(state, totalCost);
 
+		// GATE.T68.ECON.PERCENTAGE_SINKS.001: Apply trade tax (percentage-based sink).
+		if (FleetUpkeepTweaksV0.TradeTaxBps > 0)
+		{
+			long taxAmount = (long)totalCost * FleetUpkeepTweaksV0.TradeTaxBps / 10000;
+			if (taxAmount < 1) taxAmount = 1;
+			totalCost += (int)taxAmount;
+		}
+
 		// Final safety: if rounding pushed total over budget, reduce by one.
 		while (qty > 0 && totalCost > state.PlayerCredits)
 		{
@@ -114,6 +125,8 @@ public class BuyCommand : ICommand
 			totalCost = unitPrice * qty;
 			totalCost += MarketSystem.ComputeTariffCredits(totalCost, tariffBps);
 			totalCost += MarketSystem.ComputeTransactionFeeCredits(state, totalCost);
+			if (FleetUpkeepTweaksV0.TradeTaxBps > 0)
+				totalCost += (int)Math.Max(1, (long)totalCost * FleetUpkeepTweaksV0.TradeTaxBps / 10000);
 		}
 		if (qty <= 0) return;
 
@@ -149,6 +162,8 @@ public class BuyCommand : ICommand
 		MarketSystem.RecordPlayerTrade(state, MarketId, GoodId);
 		// GATE.T65.ECON.ROUTE_NOVELTY.001: Record trade for novelty tracking.
 		MarketSystem.RecordRouteNovelty(state, MarketId, GoodId);
+		// GATE.T66.ECON.MARGIN_FLOOR.001: Record station trade for fresh stock premium.
+		MarketSystem.RecordStationTrade(state, MarketId);
 
 		// GATE.T61.MARKET.DEPTH_MODEL.001: Consume market depth after trade.
 		MarketSystem.ConsumeDepth(market, qty);
@@ -160,5 +175,23 @@ public class BuyCommand : ICommand
 		// GATE.T53.BOT.TRADE_REP.001: Award faction rep for trading at their station.
 		if (!string.IsNullOrEmpty(factionId))
 			ReputationSystem.OnTradeAtFactionStation(state, factionId);
+
+		// GATE.T67.PACING.STREAK_BREAKER.001: Record action type for streak tracking.
+		RecordActionType(state, "buy");
+		// GATE.T67.FO.SILENCE_DECISIONS.001: Increment decision counter for FO silence tracking.
+		if (state.FirstOfficer != null) state.FirstOfficer.DecisionsSinceLastLine++;
+	}
+
+	// GATE.T67.PACING.STREAK_BREAKER.001: Track consecutive same-type actions.
+	private static void RecordActionType(SimState state, string actionType)
+	{
+		if (state.PlayerStats == null) return;
+		if (string.Equals(state.PlayerStats.LastActionType, actionType, StringComparison.Ordinal))
+			state.PlayerStats.ConsecutiveActionStreak++;
+		else
+		{
+			state.PlayerStats.LastActionType = actionType;
+			state.PlayerStats.ConsecutiveActionStreak = 1; // STRUCTURAL: first action of new type
+		}
 	}
 }

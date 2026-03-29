@@ -39,6 +39,9 @@ var destination_node_id: String = ""
 var _indicator_angles: Array = []    # Smoothed rotation angles.
 var _indicator_spawn_t: Array = []   # Time each indicator last became visible.
 var _indicator_was_visible: Array = []  # Previous frame visibility.
+# GATE.T67.PERF.FPS_OPTIMIZE.001: Track previous indicator position to skip redundant redraws.
+var _prev_indicator_pos: Array = []  # Previous frame screen position per indicator.
+const REDRAW_THRESHOLD_PX: float = 2.0  # Only redraw if indicator moved > 2 pixels.
 
 var _debug_timer: float = 0.0
 
@@ -52,6 +55,7 @@ func _ready() -> void:
 		_indicator_angles.append(0.0)
 		_indicator_spawn_t.append(0.0)
 		_indicator_was_visible.append(false)
+		_prev_indicator_pos.append(Vector2(-999, -999))
 	print("DEBUG_EDGEDAR|READY|indicators=%d" % _indicators.size())
 
 
@@ -389,10 +393,14 @@ func _update_indicators(camera: Camera3D, delta: float) -> void:
 			if poi_type == PoiType.GATE_HIGHLIGHT or poi_type == PoiType.QUEST_TARGET:
 				indicator["root"].visible = true
 				var pivot: Vector2 = indicator["arrow"].pivot_offset
-				indicator["root"].position = screen_pos - pivot
+				var new_pos: Vector2 = screen_pos - pivot
+				indicator["root"].position = new_pos
 				indicator["root"].modulate = Color(color.r, color.g, color.b, alpha * 0.5)
 				indicator["arrow"].rotation = 0
-				indicator["arrow"].queue_redraw()
+				# GATE.T67.PERF.FPS_OPTIMIZE.001: Only redraw if position changed significantly.
+				if new_pos.distance_to(_prev_indicator_pos[i]) > REDRAW_THRESHOLD_PX or not _indicator_was_visible[i]:
+					indicator["arrow"].queue_redraw()
+					_prev_indicator_pos[i] = new_pos
 				indicator["label"].text = poi.get("label", "")
 				_indicator_was_visible[i] = true
 			else:
@@ -405,14 +413,18 @@ func _update_indicators(camera: Camera3D, delta: float) -> void:
 
 			indicator["root"].visible = true
 			var pivot: Vector2 = indicator["arrow"].pivot_offset
-			indicator["root"].position = clamped - pivot
+			var new_pos: Vector2 = clamped - pivot
+			indicator["root"].position = new_pos
 			indicator["root"].modulate = Color(color.r, color.g, color.b, alpha)
 
 			# Smooth rotation toward actual direction.
 			var target_angle: float = dir.angle()
 			_indicator_angles[i] = lerp_angle(_indicator_angles[i], target_angle, delta * 10.0)
 			indicator["arrow"].rotation = _indicator_angles[i]
-			indicator["arrow"].queue_redraw()
+			# GATE.T67.PERF.FPS_OPTIMIZE.001: Only redraw if position changed significantly.
+			if new_pos.distance_to(_prev_indicator_pos[i]) > REDRAW_THRESHOLD_PX or not _indicator_was_visible[i]:
+				indicator["arrow"].queue_redraw()
+				_prev_indicator_pos[i] = new_pos
 
 			indicator["label"].text = poi.get("label", "")
 			_indicator_was_visible[i] = true

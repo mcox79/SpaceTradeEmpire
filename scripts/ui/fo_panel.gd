@@ -496,8 +496,8 @@ func _on_promote_pressed(candidate_type: String) -> void:
 		# Auto-show panel so player sees the promoted FO.
 		_flash_panel(8.0)
 		var toast_mgr = get_node_or_null("/root/ToastManager")
-		if toast_mgr and toast_mgr.has_method("show_toast"):
-			toast_mgr.call("show_toast", "First Officer promoted!", "fo")
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+			toast_mgr.call("show_priority_toast", "First Officer promoted!", "fo")
 
 
 # ---------- GATE.T58.UI.FO_SERVICE.001: Service Record ----------

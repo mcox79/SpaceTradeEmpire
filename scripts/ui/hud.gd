@@ -65,6 +65,12 @@ var _contested_label: Label = null
 var _cargo_pulse_active: bool = false
 # L3.3: Hull critical pulse state
 var _hull_pulse_active: bool = false
+# GATE.T66.PERF.FPS_OPTIMIZE.001: Cached StyleBoxFlat for HP bars — avoid 120 allocs/sec.
+var _hull_fill_style: StyleBoxFlat = null
+var _shield_fill_style: StyleBoxFlat = null
+# GATE.T66.PERF.FPS_OPTIMIZE.001: HUD refresh throttle — run expensive polls at 30Hz.
+var _hud_poll_accum: float = 0.0
+const HUD_POLL_INTERVAL: float = 1.0 / 30.0  # 30Hz refresh for bridge polls
 
 # L2.2: Galaxy map legend panel (bottom-left, mode-specific)
 var _galaxy_legend_panel: PanelContainer = null
@@ -108,6 +114,9 @@ var _combat_vignette_active: bool = false
 var _combat_banner: Label = null
 var _combat_banner_visible: bool = false
 
+# GATE.T68.VFX.COMBAT_FEEDBACK.001: Kill banner — "ENEMY DESTROYED" on NPC kill.
+var _kill_banner: Label = null
+
 # Feedback: track research state for completion celebration.
 var _prev_researching: bool = false
 var _prev_research_tech: String = ""
@@ -145,11 +154,17 @@ var _prev_credits_snapshot: int = -1
 var _onboarding_state: Dictionary = {}
 # Tutorial active flag: cached per-frame to prevent flicker from sub-update order.
 var _tutorial_active: bool = true  # Default to suppressed; cleared when bridge confirms tutorial complete.
+# GATE.T68.PERF.FPS_V2.001: Track whether tutorial hide-all has been applied.
+var _tutorial_suppressed: bool = false
 
 # GATE.T63.UI.KEYBIND_OVERLAY.001: Flight keybind hints — visible until pressed.
 var _flight_hints_panel: PanelContainer = null
 var _flight_hint_labels: Dictionary = {}  # action_name -> Label
 var _flight_hints_dismissed: Dictionary = {}  # action_name -> true when pressed
+# GATE.T68.UI.KEYBIND_HINTS.001: Auto-dismiss flight hints on first dock or 5-min timeout.
+var _flight_hints_boot_elapsed: float = 0.0
+const _FLIGHT_HINTS_TIMEOUT: float = 300.0  # 5 minutes
+var _flight_hints_auto_dismissed: bool = false  # Prevents re-showing after auto-dismiss
 
 # GATE.S7.NARRATIVE_DELIVERY.TEXT_PANEL.001: Narrative text display panel.
 var _narrative_panel = null
@@ -294,6 +309,11 @@ func _ready() -> void:
 	# GATE.T52.COMBAT.HITSTOP.001: HUD stays responsive during hitstop freeze.
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_bridge = get_node_or_null("/root/SimBridge")
+	# GATE.T66.PERF.FPS_OPTIMIZE.001: Pre-allocate StyleBoxFlat for HP bars.
+	_hull_fill_style = StyleBoxFlat.new()
+	_hull_fill_style.set_corner_radius_all(2)
+	_shield_fill_style = StyleBoxFlat.new()
+	_shield_fill_style.set_corner_radius_all(2)
 
 	# HUD status panel background — semi-transparent dark panel with subtle border.
 	# FEEL_PASS6_P4: Upgraded from plain ColorRect to PanelContainer style for visibility.
@@ -724,6 +744,23 @@ func _ready() -> void:
 	_combat_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_combat_banner.visible = false
 	add_child(_combat_banner)
+
+	# GATE.T68.VFX.COMBAT_FEEDBACK.001: Kill banner — centered "ENEMY DESTROYED" on NPC kill.
+	_kill_banner = Label.new()
+	_kill_banner.name = "KillBanner"
+	_kill_banner.text = "ENEMY DESTROYED"
+	_kill_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_kill_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_kill_banner.position = Vector2(560, 440)
+	_kill_banner.size = Vector2(800, 60)
+	_kill_banner.add_theme_font_size_override("font_size", 36)
+	_kill_banner.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3, 1.0))
+	_kill_banner.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.6))
+	_kill_banner.add_theme_constant_override("shadow_offset_x", 2)
+	_kill_banner.add_theme_constant_override("shadow_offset_y", 2)
+	_kill_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_kill_banner.visible = false
+	add_child(_kill_banner)
 
 	# GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Zone G bottom bar.
 	_zone_g_bg = ColorRect.new()
@@ -1324,8 +1361,7 @@ func _physics_process(_delta: float) -> void:
 	if not visible:
 		visible = true
 
-	# GATE.T63.UI.KEYBIND_OVERLAY.001: Update flight hints dismiss state each frame.
-	_update_flight_hints_v0()
+
 
 	# Cache tutorial-active flag once per frame to prevent HUD element flicker.
 	# IMPORTANT: Only update on successful bridge read. On lock contention
@@ -1436,6 +1472,9 @@ func _physics_process(_delta: float) -> void:
 		_show_control_hints_v0()
 	_prev_ship_state = raw_state
 
+	# GATE.T63/T68: Update flight hints dismiss state each frame (moved here for raw_state access).
+	_update_flight_hints_v0(_delta, raw_state)
+
 	# FEEL_POST_FIX_8: Hide combat HUD (zone armor + stance) during non-combat flight.
 	# FEEL_PASS6: Allow combat indicators during tutorial — player needs feedback when attacked.
 	var _in_combat_now: bool = raw_state != "DOCKED" and raw_state != "IN_LANE_TRANSIT" and _is_hostile_nearby()
@@ -1503,26 +1542,25 @@ func _physics_process(_delta: float) -> void:
 			_hull_bar.max_value = hull_max
 			_hull_bar.value = hull
 			# Hull urgency coloring: red < 20%, yellow 20-50%, green > 60%.
+			# GATE.T66.PERF.FPS_OPTIMIZE.001: Reuse cached StyleBoxFlat (was allocating 60/sec).
 			var hull_pct: float = float(hull) / float(hull_max)
-			var hull_fill_style := StyleBoxFlat.new()
-			hull_fill_style.set_corner_radius_all(2)
 			if hull_pct < 0.15 and hull_pct > 0.0:
 				_hull_label.text = "Hull: " + str(hull) + " / " + str(hull_max) + "  CRITICAL"
 				_hull_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.15))
-				hull_fill_style.bg_color = Color(1.0, 0.15, 0.1)
+				_hull_fill_style.bg_color = Color(1.0, 0.15, 0.1)
 			elif hull_pct < 0.3:
 				_hull_label.text = "Hull: " + str(hull) + " / " + str(hull_max)
 				_hull_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.2))
-				hull_fill_style.bg_color = Color(1.0, 0.3, 0.1)
+				_hull_fill_style.bg_color = Color(1.0, 0.3, 0.1)
 			elif hull_pct < 0.6:
 				_hull_label.text = "Hull: " + str(hull) + " / " + str(hull_max)
 				_hull_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.2))
-				hull_fill_style.bg_color = Color(1.0, 0.7, 0.1)
+				_hull_fill_style.bg_color = Color(1.0, 0.7, 0.1)
 			else:
 				_hull_label.text = "Hull: " + str(hull) + " / " + str(hull_max)
 				_hull_label.remove_theme_color_override("font_color")
-				hull_fill_style.bg_color = Color(0.2, 0.85, 0.3)
-			_hull_bar.add_theme_stylebox_override("fill", hull_fill_style)
+				_hull_fill_style.bg_color = Color(0.2, 0.85, 0.3)
+			_hull_bar.add_theme_stylebox_override("fill", _hull_fill_style)
 			_hull_bar.visible = true
 			_hull_label.visible = true
 			# L3.3: Hull critical pulse — bar pulses when below 25%.
@@ -1545,14 +1583,13 @@ func _physics_process(_delta: float) -> void:
 			_shield_bar.max_value = shield_max
 			_shield_bar.value = shield
 			_shield_label.text = "Shield: " + str(shield) + " / " + str(shield_max)
+			# GATE.T66.PERF.FPS_OPTIMIZE.001: Reuse cached StyleBoxFlat.
 			var shield_pct: float = float(shield) / float(shield_max)
-			var shield_fill_style := StyleBoxFlat.new()
-			shield_fill_style.set_corner_radius_all(2)
 			if shield_pct < 0.5:
-				shield_fill_style.bg_color = Color(0.15, 0.4, 0.55)
+				_shield_fill_style.bg_color = Color(0.15, 0.4, 0.55)
 			else:
-				shield_fill_style.bg_color = Color(0.3, 0.8, 1.0)
-			_shield_bar.add_theme_stylebox_override("fill", shield_fill_style)
+				_shield_fill_style.bg_color = Color(0.3, 0.8, 1.0)
+			_shield_bar.add_theme_stylebox_override("fill", _shield_fill_style)
 			_shield_bar.visible = true
 			_shield_label.visible = true
 		else:
@@ -1564,11 +1601,12 @@ func _physics_process(_delta: float) -> void:
 
 	# GATE.S7.COMBAT_PHASE2.HEAT_HUD.001: Heat gauge + battle stations indicator.
 	# Only show heat bar during active combat (BattleReady) — not at rest.
-	var _show_heat := false
+	# GATE.T66.PERF.FPS_OPTIMIZE.001: Query battle stations state ONCE for both heat and BS label.
+	var _bs_state_dict: Dictionary = {}
+	if _bridge and _bridge.has_method("GetBattleStationsStateV0"):
+		_bs_state_dict = _bridge.call("GetBattleStationsStateV0")
+	var _show_heat: bool = str(_bs_state_dict.get("state", "StandDown")) == "BattleReady"
 	if _heat_bar and _bridge and _bridge.has_method("GetHeatSnapshotV0"):
-		if _bridge.has_method("GetBattleStationsStateV0"):
-			var _bs_check: Dictionary = _bridge.call("GetBattleStationsStateV0")
-			_show_heat = _bs_check.get("state", "StandDown") == "BattleReady"
 		var heat: Dictionary = _bridge.call("GetHeatSnapshotV0")
 		var hc: int = heat.get("heat_current", 0)
 		var cap: int = heat.get("heat_capacity", 1000)
@@ -1607,8 +1645,9 @@ func _physics_process(_delta: float) -> void:
 			if _screen_edge_tint and _screen_edge_tint.has_method("set_combat_overheat"):
 				_screen_edge_tint.set_combat_overheat(0.0)
 
+	# GATE.T66.PERF.FPS_OPTIMIZE.001: Reuse battle stations state from hoisted query (was calling twice).
 	if _battle_stations_label and _bridge and _bridge.has_method("GetBattleStationsStateV0"):
-		var bs: Dictionary = _bridge.call("GetBattleStationsStateV0")
+		var bs: Dictionary = _bs_state_dict
 		var bs_state: String = bs.get("state", "StandDown")
 		match bs_state:
 			"BattleReady":
@@ -1665,123 +1704,136 @@ func _physics_process(_delta: float) -> void:
 		_update_belt_watching_v0()
 		# GATE.T59.DISC_VIZ.APPROACH_FEEDBACK.001: Discovery approach bracket.
 		_update_discovery_bracket_v0()
+		# GATE.T68.PERF.FPS_V2.001: Moved from per-frame to slow-poll (change at sim tick rate).
+		_update_security_hud_v0()
+		_update_incident_badge_v0()
+		_update_contested_zone_v0()
+		_update_delay_eta_v0()
 
-	# GATE.S5.SEC_LANES.UI.001: security band display
-	# Hidden during tutorial — threat hasn't been introduced yet.
-	if _security_label != null and _bridge != null:
-		var _hud_in_tutorial := false
-		if _bridge.has_method("GetTutorialStateV0"):
-			var _tut_st: Dictionary = _bridge.call("GetTutorialStateV0")
-			var _tut_ph: String = str(_tut_st.get("phase_name", ""))
-			if _tut_ph != "" and _tut_ph != "Tutorial_Complete":
-				_hud_in_tutorial = true
-		if _hud_in_tutorial:
-			_security_label.visible = false
-		else:
-			var node_id: String = str(ps.get("current_node_id", ""))
-			if not node_id.is_empty() and _bridge.has_method("GetNodeSecurityBandV0"):
-				var band: String = str(_bridge.call("GetNodeSecurityBandV0", node_id))
-				var display_band: String = _security_display_name(band)
-				_security_label.text = display_band
-				_security_label.visible = true
-				_security_label.add_theme_color_override("font_color", UITheme.security_color(band))
-			else:
-				_security_label.visible = false
-
-	# GATE.T61.SECURITY.INCIDENT_LOG.001: Incident badge update.
-	if _incident_badge != null and _bridge != null and _bridge.has_method("GetUnreadIncidentCountV0"):
-		var unread: int = int(_bridge.call("GetUnreadIncidentCountV0", _incident_last_read_tick))
-		if unread > 0:
-			_incident_badge.visible = true
-			if _incident_badge_label:
-				_incident_badge_label.text = str(unread) if unread < 100 else "99+"
-		else:
-			_incident_badge.visible = false
-
-	# L3.3: Contested zone warning — show when current node is in an active warfront.
-	if _contested_label != null and _bridge != null:
-		var _contested_visible := false
-		if not _tutorial_active and _bridge.has_method("GetWarfrontOverlayV0"):
-			var node_id_c: String = str(ps.get("current_node_id", ""))
-			if not node_id_c.is_empty():
-				var wf_overlay: Dictionary = _bridge.call("GetWarfrontOverlayV0")
-				if wf_overlay.has(node_id_c):
-					var intensity: float = float(wf_overlay[node_id_c])
-					if intensity > 0.0:
-						_contested_visible = true
-						if intensity >= 0.75:
-							_contested_label.text = "WARZONE"
-							_contested_label.add_theme_color_override("font_color", UITheme.RED)
-						else:
-							_contested_label.text = "CONTESTED ZONE"
-							_contested_label.add_theme_color_override("font_color", UITheme.ORANGE)
-		_contested_label.visible = _contested_visible
-
-	# GATE.S3.RISK_SINKS.HUD_INDICATOR.001: delay/ETA + risk level display
-	if _tutorial_active and _delay_label != null:
-		_delay_label.visible = false
-	elif _delay_label != null and _bridge != null:
-		var show_delay := false
-		var delay_text := ""
-		var risk_color := UITheme.ORANGE
-		var ship_state: String = str(ps.get("ship_state_token", ""))
-		if ship_state == "Traveling" or ship_state == "FractureTraveling":
-			if _bridge.has_method("GetDelayStatusV0"):
-				var delay_info: Dictionary = _bridge.call("GetDelayStatusV0", "fleet_trader_1")
-				var ticks_rem: int = int(delay_info.get("ticks_remaining", 0))
-				if delay_info.get("delayed", false):
-					show_delay = true
-					delay_text = "DELAYED: %d ticks" % ticks_rem
-					# Color by severity: red if > 5 ticks, orange otherwise
-					if ticks_rem > 5:
-						risk_color = UITheme.RED
-			if _bridge.has_method("GetTravelEtaV0"):
-				var node_id: String = str(ps.get("current_node_id", ""))
-				var eta_info: Dictionary = _bridge.call("GetTravelEtaV0", "fleet_trader_1", node_id)
-				var total_ticks: int = int(eta_info.get("total_ticks", 0))
-				var delay_ticks: int = int(eta_info.get("delay_ticks", 0))
-				if total_ticks > 0:
-					show_delay = true
-					var eta_str := "ETA: %d ticks" % total_ticks
-					if delay_ticks > 0:
-						eta_str += " (+%d delay)" % delay_ticks
-					if delay_text.is_empty():
-						delay_text = eta_str
-					else:
-						delay_text += " | " + eta_str
-					# Green if no delay, orange if some, red if heavy
-					if delay_ticks == 0:
-						risk_color = UITheme.GREEN
-		_delay_label.visible = show_delay
-		_delay_label.text = delay_text
-		_delay_label.add_theme_color_override("font_color", risk_color)
+	# GATE.T68.PERF.FPS_V2.001: Security, incident, contested, delay/ETA moved to slow-poll.
+	# These change at game-tick rate (not frame rate) and had ~5 bridge calls per physics frame.
 
 	# ── TUTORIAL FINAL SUPPRESSION (whitelist approach) ─────────────────
-	# Every-frame: hide ALL children, then re-show only the whitelist.
-	# Future-proof — any new HUD element is hidden during tutorial by
-	# default without needing an explicit entry here.
+	# GATE.T68.PERF.FPS_V2.001: Only iterate children once when entering tutorial mode.
+	# Then maintain whitelist visibility per-frame (cheap: ~6 assignments vs ~50 iterations).
 	if _tutorial_active:
-		for child in get_children():
-			if child is CanvasItem:
-				child.visible = false
-		# Whitelist: only these survive during tutorial.
+		if not _tutorial_suppressed:
+			_tutorial_suppressed = true
+			for child in get_children():
+				if child is CanvasItem:
+					child.visible = false
+		# Whitelist: only these survive during tutorial (cheap per-frame assignments).
 		_credits_label.visible = true
 		_cargo_label.visible = true
 		_node_label.visible = true
 		_state_label.visible = true
 		if _guide_objective_label:
 			var _show_obj: bool = _guide_objective_label.text != ""
-			# Context-aware: suppress stale objectives during dock/warp/combat.
 			if _show_obj:
-				var _ps_tut = _bridge.call("GetPlayerStateV0") if _bridge and _bridge.has_method("GetPlayerStateV0") else {}
-				if _ps_tut is Dictionary:
-					var _st: String = str(_ps_tut.get("ship_state_token", ""))
-					if _st == "WARP_TRANSIT" or _st == "WARPING" or _st == "IN_LANE_TRANSIT" or _st == "COMBAT":
-						_show_obj = false
-					elif _st == "DOCKED" and _guide_objective_label.text.find("Dock at") >= 0:
-						_show_obj = false
+				var _st: String = str(ps.get("ship_state_token", ""))
+				if _st == "WARP_TRANSIT" or _st == "WARPING" or _st == "IN_LANE_TRANSIT" or _st == "COMBAT":
+					_show_obj = false
+				elif _st == "DOCKED" and _guide_objective_label.text.find("Dock at") >= 0:
+					_show_obj = false
 			_guide_objective_label.visible = _show_obj
 		if _dock_prompt_label: _dock_prompt_label.visible = _dock_prompt_label.text != ""
+	elif _tutorial_suppressed:
+		_tutorial_suppressed = false
+
+# GATE.T68.PERF.FPS_V2.001: Security band display (moved from per-frame to slow-poll).
+func _update_security_hud_v0() -> void:
+	if _security_label == null or _bridge == null:
+		return
+	if _tutorial_active:
+		_security_label.visible = false
+		return
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0") if _bridge.has_method("GetPlayerStateV0") else {}
+	var node_id: String = str(ps.get("current_node_id", ""))
+	if not node_id.is_empty() and _bridge.has_method("GetNodeSecurityBandV0"):
+		var band: String = str(_bridge.call("GetNodeSecurityBandV0", node_id))
+		var display_band: String = _security_display_name(band)
+		_security_label.text = display_band
+		_security_label.visible = true
+		_security_label.add_theme_color_override("font_color", UITheme.security_color(band))
+	else:
+		_security_label.visible = false
+
+# GATE.T68.PERF.FPS_V2.001: Incident badge update (moved from per-frame to slow-poll).
+func _update_incident_badge_v0() -> void:
+	if _incident_badge == null or _bridge == null:
+		return
+	if not _bridge.has_method("GetUnreadIncidentCountV0"):
+		return
+	var unread: int = int(_bridge.call("GetUnreadIncidentCountV0", _incident_last_read_tick))
+	if unread > 0:
+		_incident_badge.visible = true
+		if _incident_badge_label:
+			_incident_badge_label.text = str(unread) if unread < 100 else "99+"
+	else:
+		_incident_badge.visible = false
+
+# GATE.T68.PERF.FPS_V2.001: Contested zone warning (moved from per-frame to slow-poll).
+func _update_contested_zone_v0() -> void:
+	if _contested_label == null or _bridge == null:
+		return
+	var _contested_visible := false
+	if not _tutorial_active and _bridge.has_method("GetWarfrontOverlayV0"):
+		var ps: Dictionary = _bridge.call("GetPlayerStateV0") if _bridge.has_method("GetPlayerStateV0") else {}
+		var node_id_c: String = str(ps.get("current_node_id", ""))
+		if not node_id_c.is_empty():
+			var wf_overlay: Dictionary = _bridge.call("GetWarfrontOverlayV0")
+			if wf_overlay.has(node_id_c):
+				var intensity: float = float(wf_overlay[node_id_c])
+				if intensity > 0.0:
+					_contested_visible = true
+					if intensity >= 0.75:
+						_contested_label.text = "WARZONE"
+						_contested_label.add_theme_color_override("font_color", UITheme.RED)
+					else:
+						_contested_label.text = "CONTESTED ZONE"
+						_contested_label.add_theme_color_override("font_color", UITheme.ORANGE)
+	_contested_label.visible = _contested_visible
+
+# GATE.T68.PERF.FPS_V2.001: Delay/ETA display (moved from per-frame to slow-poll).
+func _update_delay_eta_v0() -> void:
+	if _delay_label == null or _bridge == null:
+		return
+	if _tutorial_active:
+		_delay_label.visible = false
+		return
+	var show_delay := false
+	var delay_text := ""
+	var risk_color := UITheme.ORANGE
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0") if _bridge.has_method("GetPlayerStateV0") else {}
+	var ship_state: String = str(ps.get("ship_state_token", ""))
+	if ship_state == "Traveling" or ship_state == "FractureTraveling":
+		if _bridge.has_method("GetDelayStatusV0"):
+			var delay_info: Dictionary = _bridge.call("GetDelayStatusV0", "fleet_trader_1")
+			var ticks_rem: int = int(delay_info.get("ticks_remaining", 0))
+			if delay_info.get("delayed", false):
+				show_delay = true
+				delay_text = "DELAYED: %d ticks" % ticks_rem
+				if ticks_rem > 5:
+					risk_color = UITheme.RED
+		if _bridge.has_method("GetTravelEtaV0"):
+			var node_id: String = str(ps.get("current_node_id", ""))
+			var eta_info: Dictionary = _bridge.call("GetTravelEtaV0", "fleet_trader_1", node_id)
+			var total_ticks: int = int(eta_info.get("total_ticks", 0))
+			var delay_ticks: int = int(eta_info.get("delay_ticks", 0))
+			if total_ticks > 0:
+				show_delay = true
+				var eta_str := "ETA: %d ticks" % total_ticks
+				if delay_ticks > 0:
+					eta_str += " (+%d delay)" % delay_ticks
+				if delay_text.is_empty():
+					delay_text = eta_str
+				else:
+					delay_text += " | " + eta_str
+				if delay_ticks == 0:
+					risk_color = UITheme.GREEN
+	_delay_label.visible = show_delay
+	_delay_label.text = delay_text
+	_delay_label.add_theme_color_override("font_color", risk_color)
 
 # GATE.S11.GAME_FEEL.MISSION_HUD.001: mission objective update (called every 2s)
 func _update_mission_hud() -> void:
@@ -2542,9 +2594,21 @@ func _build_flight_hints_v0() -> void:
 
 
 # GATE.T63.UI.KEYBIND_OVERLAY.001: Dismiss hints as player uses each control.
-func _update_flight_hints_v0() -> void:
+# GATE.T68.UI.KEYBIND_HINTS.001: Also auto-dismiss on first dock or 5-min timeout.
+func _update_flight_hints_v0(delta: float, ship_state: String) -> void:
 	if _flight_hints_panel == null or not _flight_hints_panel.visible:
 		return
+	# GATE.T68.UI.KEYBIND_HINTS.001: Auto-dismiss the entire panel on first dock
+	# or after 5 minutes, whichever comes first.
+	if not _flight_hints_auto_dismissed:
+		_flight_hints_boot_elapsed += delta
+		if ship_state == "DOCKED" or _flight_hints_boot_elapsed >= _FLIGHT_HINTS_TIMEOUT:
+			_flight_hints_auto_dismissed = true
+			var tw := create_tween()
+			tw.tween_property(_flight_hints_panel, "modulate:a", 0.0, 1.0).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+			tw.tween_callback(func(): _flight_hints_panel.visible = false)
+			return
+	# Per-key dismiss: fade individual hints as the player uses each control.
 	var any_visible: bool = false
 	for action in _flight_hint_labels:
 		if _flight_hints_dismissed.get(action, false):
@@ -2597,6 +2661,24 @@ func flash_damage_v0() -> void:
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("RecordHudEventV0"):
 		bridge.call("RecordHudEventV0", "damage_flash")
+
+# GATE.T68.VFX.COMBAT_FEEDBACK.001: Kill banner — centered "ENEMY DESTROYED" text with
+# fade-in, hold, fade-out over 1.5s total. Called from game_manager.despawn_fleet_v0.
+func show_kill_banner_v0() -> void:
+	if _kill_banner == null:
+		return
+	_kill_banner.visible = true
+	_kill_banner.modulate.a = 0.0
+	var tw := create_tween()
+	# Fade in 0.15s, hold 0.85s, fade out 0.5s = 1.5s total.
+	tw.tween_property(_kill_banner, "modulate:a", 1.0, 0.15)
+	tw.tween_interval(0.85)
+	tw.tween_property(_kill_banner, "modulate:a", 0.0, 0.5)
+	tw.tween_callback(func(): _kill_banner.visible = false)
+	# Record event for headless bot verification.
+	var kill_bridge = get_node_or_null("/root/SimBridge")
+	if kill_bridge and kill_bridge.has_method("RecordHudEventV0"):
+		kill_bridge.call("RecordHudEventV0", "kill_banner")
 
 # FEEL_POST_BASELINE: Check if combat is happening near the player.
 # Returns true if a hostile NPC is within 60u OR any fleet is within 25u (close engagement).
@@ -3114,7 +3196,7 @@ func _set_credits_display(t: float, start: int, target: int) -> void:
 
 ## Flash the credits label for trade feedback. Called externally by hero_trade_menu.
 ## is_profit: true = green flash (sell/income), false = red flash (buy/expense).
-func flash_credits_v0(is_profit: bool) -> void:
+func flash_credits_v0(is_profit: bool, amount: int = 0) -> void:
 	if _credits_flash == null:
 		return
 	var flash_color := UITheme.profit_color() if is_profit else UITheme.loss_color()
@@ -3125,11 +3207,45 @@ func flash_credits_v0(is_profit: bool) -> void:
 	var tw := create_tween()
 	tw.tween_property(_credits_flash, "color:a", 0.0, 0.8).set_ease(Tween.EASE_OUT)
 	tw.tween_callback(func(): _credits_flash.visible = false)
+	# GATE.T68.VFX.CREDIT_FLASH.001: Scale pulse proportional to profit amount.
+	# Base pulse: 1.0 -> 1.2 -> 1.0 over 0.4s. Large profits (>1000) pulse up to 1.35.
+	if _credits_label and is_profit:
+		var pulse_scale: float = 1.2
+		if amount > 1000:
+			pulse_scale = clampf(1.2 + float(amount - 1000) / 5000.0 * 0.15, 1.2, 1.35)
+		_credits_label.pivot_offset = _credits_label.size * 0.5
+		var scale_tw := create_tween()
+		scale_tw.tween_property(_credits_label, "scale", Vector2(pulse_scale, pulse_scale), 0.15).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+		scale_tw.tween_property(_credits_label, "scale", Vector2(1.0, 1.0), 0.25).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+	# GATE.T68.VFX.CREDIT_FLASH.001: Floating "+{amount}" text for large profits (>500cr).
+	if is_profit and amount > 500 and _credits_label:
+		_spawn_credit_float_v0(amount)
 	# Record event for headless bot verification via GetRecentHudEventsV0
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("RecordHudEventV0"):
 		bridge.call("RecordHudEventV0", "credits_flash", "profit" if is_profit else "expense")
 
+## GATE.T68.VFX.CREDIT_FLASH.001: Floating "+{amount}" text near credits label.
+## Rises upward and fades out over 1.2s. Green for profit visibility.
+func _spawn_credit_float_v0(amount: int) -> void:
+	var lbl := Label.new()
+	lbl.text = "+%s" % UITheme.fmt_credits(amount)
+	lbl.add_theme_font_size_override("font_size", 22)
+	lbl.add_theme_color_override("font_color", UITheme.profit_color())
+	UITheme.apply_mono(lbl)
+	lbl.z_index = 100
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _credits_label:
+		lbl.position = Vector2(_credits_label.position.x, _credits_label.position.y + _credits_label.size.y + 4)
+	else:
+		lbl.position = Vector2(16, 50)
+	add_child(lbl)
+	lbl.modulate.a = 0.0
+	var float_tw := create_tween()
+	float_tw.tween_property(lbl, "modulate:a", 1.0, 0.1)
+	float_tw.parallel().tween_property(lbl, "position:y", lbl.position.y - 40.0, 1.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	float_tw.tween_property(lbl, "modulate:a", 0.0, 0.3)
+	float_tw.tween_callback(lbl.queue_free)
 
 ## GATE.T41.JUICE.TRADE_BUY.001: Roll credits counter from explicit start to end over 0.5s.
 ## Called by hero_trade_menu after buy/sell to give a satisfying counter-roll effect.
@@ -3477,12 +3593,12 @@ func _check_flip_moment_v0() -> void:
 		glow_tween.tween_callback(func(): _credits_flash.visible = false)
 
 	# Channel 5: Sparkline crossover text (gold toast).
-	if toast_mgr and toast_mgr.has_method("show_toast"):
-		toast_mgr.call("show_toast", "★ NET-POSITIVE CROSSOVER ★", "gold")
+	if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+		toast_mgr.call("show_priority_toast", "★ NET-POSITIVE CROSSOVER ★", "milestone")
 
 	# Channel 6: Haven trophy wall entry (announced via toast).
-	if toast_mgr and toast_mgr.has_method("show_toast"):
-		toast_mgr.call("show_toast", "Trophy unlocked: Empire Architect", "achievement")
+	if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+		toast_mgr.call("show_priority_toast", "Trophy unlocked: Empire Architect", "milestone")
 
 
 # GATE.T58.UI.BELT_WATCHING.001: Belt-watching route activity indicator.

@@ -25,6 +25,29 @@ public static class FirstOfficerSystem
     public static void Process(SimState state)
     {
         if (state.FirstOfficer == null) return;
+
+        // GATE.T67.FO.DOCK_GREETING.001: Track first dock even before promotion.
+        // If player docks before FO is promoted, set deferred flag for greeting after promotion.
+        if (!state.FirstOfficer.IsPromoted)
+        {
+            Fleet? pf2 = null;
+            foreach (var f in state.Fleets.Values)
+            {
+                if (string.Equals(f.OwnerId, "player", StringComparison.Ordinal))
+                { pf2 = f; break; }
+            }
+            if (pf2 != null && pf2.State == FleetState.Docked)
+                state.FirstOfficer.DeferredDockGreeting = true;
+            return;
+        }
+
+        // GATE.T67.FO.DOCK_GREETING.001: Fire deferred dock greeting after promotion.
+        if (state.FirstOfficer.DeferredDockGreeting)
+        {
+            state.FirstOfficer.DeferredDockGreeting = false;
+            TryFireTrigger(state, "FIRST_DOCK");
+        }
+
         if (!state.FirstOfficer.IsPromoted) return;
 
         // Advance tier based on tick thresholds OR relationship score.
@@ -241,6 +264,21 @@ public static class FirstOfficerSystem
         {
             TryFireTrigger(state, "ALL_NODES_EXPLORED");
         }
+
+        // GATE.T67.PACING.STREAK_BREAKER.001: Monotone action streak → FO observation.
+        // After 15+ consecutive same-type actions, FO breaks the monotony with a comment.
+        if (state.PlayerStats != null
+            && state.PlayerStats.ConsecutiveActionStreak >= NarrativeTweaksV0.MonotoneStreakThreshold
+            && state.PlayerStats.ConsecutiveActionStreak % NarrativeTweaksV0.MonotoneStreakThreshold == 0) // STRUCTURAL: fire every Nth
+        {
+            int streakIdx = (state.PlayerStats.ConsecutiveActionStreak / NarrativeTweaksV0.MonotoneStreakThreshold
+                % NarrativeTweaksV0.MonotoneStreakMaxCount) + 1; // STRUCTURAL: 1-based cycling
+            TryFireTrigger(state, $"MONOTONE_STREAK_{streakIdx}");
+        }
+
+        // GATE.T68.PACING.EVENT_INTERRUPTS.001: Market perturbation at high monotone streaks.
+        // After 20+ consecutive same actions, inject dampening to break the economic loop.
+        MarketSystem.InjectMonotoneInterrupt(state);
 
         // ── MID TIER triggers ──
 
@@ -708,6 +746,7 @@ public static class FirstOfficerSystem
         });
 
         fo.LastDialogueTick = state.Tick;
+        fo.DecisionsSinceLastLine = 0; // GATE.T67.FO.SILENCE_DECISIONS.001: Reset decision counter.
         fo.RelationshipScore += line.RelationshipDelta;
         // GATE.S19.ONBOARD.FO_DYNAMIC.007: Replace dynamic tokens in dialogue text.
         fo.PendingDialogueLine = ReplaceDynamicTokens(state, line.Text);
@@ -737,6 +776,18 @@ public static class FirstOfficerSystem
             RelationshipScore = 0,
             BlindSpotExposed = false
         };
+
+        // GATE.T66.FO.DOCK_RELIABILITY.001: Retroactively fire FIRST_DOCK if player is docked.
+        // TryFireTrigger requires IsPromoted=true, so FIRST_DOCK misses at actual first dock
+        // (FO not yet selected). Fire it now so the FO greets the player immediately.
+        Fleet? playerFleet = null;
+        foreach (var f in state.Fleets.Values)
+        {
+            if (string.Equals(f.OwnerId, "player", StringComparison.Ordinal))
+            { playerFleet = f; break; }
+        }
+        if (playerFleet != null && playerFleet.State == FleetState.Docked)
+            TryFireTrigger(state, "FIRST_DOCK");
 
         return true;
     }
@@ -1050,9 +1101,14 @@ public static class FirstOfficerSystem
             fo.LastDialogueTick = fo.PromotionTick;
 
         int silenceDuration = state.Tick - fo.LastDialogueTick;
-        if (silenceDuration < NarrativeTweaksV0.SilenceFallbackThresholdTicks) return;
+        bool tickSilent = silenceDuration >= NarrativeTweaksV0.SilenceFallbackThresholdTicks;
+        // GATE.T67.FO.SILENCE_DECISIONS.001: Decision-based silence — fire if player has made
+        // 25+ decisions without hearing from FO, regardless of tick count.
+        bool decisionSilent = fo.DecisionsSinceLastLine >= NarrativeTweaksV0.SilenceDecisionThreshold;
+        if (!tickSilent && !decisionSilent) return;
 
-        // Find the next unfired silence break token.
+        // GATE.T66.FO.SILENCE_FILL.001: Find the next unfired silence break token.
+        // Hades priority-bucket pattern: cycle through tokens, recycling when all consumed.
         for (int n = 1; n <= NarrativeTweaksV0.SilenceBreakMaxCount; n++)
         {
             string token = $"SILENCE_BREAK_{n}";
@@ -1068,6 +1124,17 @@ public static class FirstOfficerSystem
                 return; // Fire at most one per check.
             }
         }
+
+        // GATE.T66.FO.SILENCE_FILL.001: All tokens consumed — recycle by clearing
+        // silence break entries from the dialogue log. Tokens fire again in sequence.
+        // Subnautica pattern: background timer forces micro-events when silent too long.
+        fo.DialogueEventLog.RemoveAll(evt =>
+            evt.TriggerToken != null && evt.TriggerToken.StartsWith("SILENCE_BREAK_", StringComparison.Ordinal));
+        // Also recycle ambient observations for longer sessions.
+        fo.DialogueEventLog.RemoveAll(evt =>
+            evt.TriggerToken != null && evt.TriggerToken.StartsWith("AMBIENT_OBS_", StringComparison.Ordinal));
+        // Fire the first recycled token immediately.
+        TryFireTrigger(state, "SILENCE_BREAK_1");
     }
 
     // GATE.T60.FO.PACING_HEARTBEAT.001: Ambient observations on 200-tick cadence.

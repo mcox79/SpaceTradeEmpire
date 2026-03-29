@@ -1,195 +1,517 @@
 {
   "queue_contract_version": "2.3",
   "queue_ordering": "MULTIKEY_V1",
-  "generated_utc": "2026-03-27T23:15:00Z",
-  "queue_intent": "T65 tranche: 15/15 gates DONE. Carry-forward proof/eval gates from T41/T52/T58/T64/X remain.",
+  "generated_utc": "2026-03-29T14:30:00Z",
+  "queue_intent": "T70 Exploration Danger Gradient & Fundamental Fixes: 21 gates across 3 tiers. Tier 1 fixes broken fundamentals (market volatility, price floors, FO LRU, discoveries, combat juice). Tier 2 builds danger gradient (threat levels, NPC scaling, margin scaling, FO dialogue, lane events, galaxy viz). Tier 3 validates (contract tests, fh_15 audit, epic review).",
   "tasks": [
     {
-      "gate_id": "GATE.T41.PROOF.FH_REAUDIT.001",
-      "task_id": "GATE.T41.PROOF.FH_REAUDIT.001.T835",
+      "gate_id": "GATE.T70.ECON.MARGIN_DECAY.001",
+      "task_id": "GATE.T70.ECON.MARGIN_DECAY.001.T756",
       "status": "TODO",
-      "title": "GATE.T41.PROOF.FH_REAUDIT.001: First-hour re-audit fh_5, produce fh_4 to fh_5 delta",
-      "intent": "Re-run /audit first-hour after all T41 fixes. Compare 20-dimension scorecard, 5 goal scores, 5 moment scores, feel dashboard. Target: 0 CRITICAL, <=3 MAJOR, Goal avg >=4.0. Milestone: REGRESSION_ANCHOR. Tier 3: runs after all fix gates.",
-      "evidence_paths": ["scripts/tools/Run-FHBot.ps1", "scripts/tools/Run-ExperienceBot.ps1"],
-      "constraints": ["Single-session scope.", "Tier 3: all T41 fix gates must be DONE."],
-      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode visual"],
-      "task_preflight": ["anchor=scripts/tools/Run-FHBot.ps1"],
-      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
-      "parallel_group": "docs",
-      "tier": 3,
+      "title": "GATE.T70.ECON.MARGIN_DECAY.001: Fix competence margin decline -60 to -81%",
+      "intent": "Reduce MaxDampenBps to prevent price equalization crushing late margins. Add experienced trader decay multiplier so repeated-route dampening recovers faster. Unlock late-game goods after node visit count threshold. Target: late margins >= 80% of early margins.",
+      "evidence_paths": ["SimCore/Systems/MarketSystem.cs", "SimCore/Tweaks/MarketTweaksV0.cs"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""],
+      "task_preflight": ["anchor=SimCore/Systems/MarketSystem.cs"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
+      "parallel_group": "core",
+      "tier": 1,
       "blocks": [],
-      "hash_affecting": false,
-      "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"]
+      "hash_affecting": true,
+      "verify": [
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""
+      ]
     },
     {
-      "gate_id": "GATE.T52.COMBAT.VISUAL_PROOF.001",
-      "task_id": "GATE.T52.COMBAT.VISUAL_PROOF.001.T967",
+      "gate_id": "GATE.T70.EXPLORE.DISCOVERY_BY_TL.001",
+      "task_id": "GATE.T70.EXPLORE.DISCOVERY_BY_TL.001.T381",
       "status": "TODO",
-      "title": "GATE.T52.COMBAT.VISUAL_PROOF.001: Visual proof for NPC labels",
-      "intent": "Run visual sweep. Verify: NPC labels visible in npc_closeup frame, HOSTILE text on hostile NPC, health bars present. Compare vs audit_1.",
-      "evidence_paths": ["scripts/tests/visual_sweep_bot_v0.gd", "scripts/tools/Run-Screenshot.ps1"],
-      "constraints": ["Single-session scope.", "Tier 3 -- runs after combat gates."],
-      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-Screenshot.ps1 -Mode full"],
-      "task_preflight": ["anchor=scripts/tests/visual_sweep_bot_v0.gd"],
-      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
+      "title": "GATE.T70.EXPLORE.DISCOVERY_BY_TL.001: Gate discovery placement by threat level",
+      "intent": "DiscoverySeedGen uses Node.ThreatLevel to gate placement. TL 0-1: no discoveries. TL 2-3: common anomaly fragments. TL 4+: rare/deep discoveries. Ensures exploration reward scales with danger.",
+      "evidence_paths": ["SimCore/Gen/DiscoverySeedGen.cs", "SimCore/Tweaks/ThreatTweaksV0.cs"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""],
+      "task_preflight": ["anchor=SimCore/Gen/DiscoverySeedGen.cs"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
+      "parallel_group": "core",
+      "tier": 3,
+      "blocks": ["GATE.T70.THREAT.NODE_THREAT_LEVEL.001", "GATE.T70.EXPLORE.DISCOVERY_SEED.001"],
+      "hash_affecting": true,
+      "verify": [
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""
+      ]
+    },
+    {
+      "gate_id": "GATE.T70.EXPLORE.DISCOVERY_SEED.001",
+      "task_id": "GATE.T70.EXPLORE.DISCOVERY_SEED.001.T314",
+      "status": "TODO",
+      "title": "GATE.T70.EXPLORE.DISCOVERY_SEED.001: Seed anomaly fragments near starter",
+      "intent": "Fix discoveries_seeded=0 on all 5 seeds. DiscoverySeedGen places 1-2 anomaly fragments within 3-4 hops of starter node. NarrativePlacementGen ensures breadcrumb chain leading outward. Target: discoveries_seeded >= 1 on all seeds.",
+      "evidence_paths": ["SimCore/Gen/DiscoverySeedGen.cs", "SimCore/Gen/NarrativePlacementGen.cs", "SimCore/Gen/GalaxyGenerator.cs"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""],
+      "task_preflight": ["anchor=SimCore/Gen/DiscoverySeedGen.cs"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
+      "parallel_group": "core",
+      "tier": 1,
+      "blocks": [],
+      "hash_affecting": true,
+      "verify": [
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""
+      ]
+    },
+    {
+      "gate_id": "GATE.T70.FO.LRU_TOKEN.001",
+      "task_id": "GATE.T70.FO.LRU_TOKEN.001.T592",
+      "status": "TODO",
+      "title": "GATE.T70.FO.LRU_TOKEN.001: LRU token selection in ProcessSilenceFallback",
+      "intent": "Fix FO 89.7% dead zone caused by ProcessSilenceFallback clearing entire log and tick-modulo math landing on same 2-3 tokens. Implement LRU selection: track last-used index per pool, never repeat within window of pool.Length/3. 163-line Analyst pool is large enough -- problem is selection algorithm.",
+      "evidence_paths": ["SimCore/Systems/FirstOfficerSystem.cs", "SimCore.Tests/Systems/FirstOfficerTests.cs"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FirstOfficer\""],
+      "task_preflight": ["anchor=SimCore/Systems/FirstOfficerSystem.cs"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
+      "parallel_group": "core",
+      "tier": 1,
+      "blocks": [],
+      "hash_affecting": true,
+      "verify": [
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FirstOfficer\""
+      ]
+    },
+    {
+      "gate_id": "GATE.T70.PROOF.FH_AUDIT.001",
+      "task_id": "GATE.T70.PROOF.FH_AUDIT.001.T562",
+      "status": "TODO",
+      "title": "GATE.T70.PROOF.FH_AUDIT.001: First-hour audit fh_15 post-danger-gradient",
+      "intent": "Re-run /audit first-hour (fh_15). Compare vs fh_14 baseline. Validate danger gradient impact on experience: route diversity, exploration depth, combat encounters by TL, margin scaling. Target: 0 CRITICAL, <=3 MAJOR, Goal avg >= 4.0.",
+      "evidence_paths": ["reports/audit/", "scripts/tools/Run-FHBot.ps1"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode headless"],
+      "task_preflight": ["anchor=reports/audit/"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
+      "parallel_group": "docs",
+      "tier": 3,
+      "blocks": ["GATE.T70.THREAT.NODE_THREAT_LEVEL.001", "GATE.T70.THREAT.NPC_SCALING.001", "GATE.T70.THREAT.MARGIN_SCALING.001", "GATE.T70.THREAT.LANE_EVENTS.001"],
+      "hash_affecting": false,
+      "verify": [
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"
+      ]
+    },
+    {
+      "gate_id": "GATE.T70.THREAT.BRIDGE_QUERY.001",
+      "task_id": "GATE.T70.THREAT.BRIDGE_QUERY.001.T726",
+      "status": "TODO",
+      "title": "GATE.T70.THREAT.BRIDGE_QUERY.001: SimBridge threat level query methods",
+      "intent": "Add SimBridge.GetNodeThreatLevelV0(nodeId) returning int 0-5. Add GetThreatAssessmentV0(routeNodeIds) returning aggregated danger summary (max TL, pirate chance, event probabilities). Used by galaxy map and FO route preview.",
+      "evidence_paths": ["scripts/bridge/SimBridge.Haven.cs", "SimCore/Entities/Node.cs"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo"],
+      "task_preflight": ["anchor=scripts/bridge/SimBridge.Haven.cs"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
       "parallel_group": "bridge",
-      "tier": 3,
-      "blocks": [],
+      "tier": 2,
+      "blocks": ["GATE.T70.THREAT.NODE_THREAT_LEVEL.001"],
       "hash_affecting": false,
-      "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo"]
+      "verify": [
+        "dotnet build \"Space Trade Empire.csproj\" --nologo"
+      ]
     },
     {
-      "gate_id": "GATE.T52.ECON.STRESS_PROOF.001",
-      "task_id": "GATE.T52.ECON.STRESS_PROOF.001.T956",
+      "gate_id": "GATE.T70.THREAT.CONTRACT_TESTS.001",
+      "task_id": "GATE.T70.THREAT.CONTRACT_TESTS.001.T945",
       "status": "TODO",
-      "title": "GATE.T52.ECON.STRESS_PROOF.001: Stress bot proof for economy fixes",
-      "intent": "Run stress bot 1500 cycles. Verify: trade diversity >=8/12 goods, credit direction changes >=3, tariff revenue >0.",
-      "evidence_paths": ["scripts/tests/playthrough_bot_v0.gd", "scripts/tools/Run-Bot.ps1"],
-      "constraints": ["Single-session scope.", "Tier 3 -- runs after all economy fixes."],
-      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-Bot.ps1 -Mode stress -Cycles 1500"],
-      "task_preflight": ["anchor=scripts/tests/playthrough_bot_v0.gd"],
-      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
+      "title": "GATE.T70.THREAT.CONTRACT_TESTS.001: Contract tests for danger gradient",
+      "intent": "Contract tests validating: (1) TL correctness across 5 seeds (BFS hop count matches TL), (2) margin scaling by TL (higher TL = higher margins), (3) NPC ship class by TL (no pirates at TL 0-1, scouts at TL 2, etc.), (4) lane event rates scale with TL. All deterministic.",
+      "evidence_paths": ["NEW: SimCore.Tests/Systems/ThreatLevelTests.cs", "SimCore/Tweaks/ThreatTweaksV0.cs", "SimCore/Entities/Node.cs"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"ThreatLevel\""],
+      "task_preflight": ["anchor=NEW: SimCore.Tests/Systems/ThreatLevelTests.cs"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
+      "parallel_group": "core",
+      "tier": 3,
+      "blocks": ["GATE.T70.THREAT.NODE_THREAT_LEVEL.001", "GATE.T70.THREAT.NPC_SCALING.001", "GATE.T70.THREAT.MARGIN_SCALING.001"],
+      "hash_affecting": false,
+      "verify": [
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"ThreatLevel\""
+      ]
+    },
+    {
+      "gate_id": "GATE.T70.THREAT.FO_DIALOGUE.001",
+      "task_id": "GATE.T70.THREAT.FO_DIALOGUE.001.T894",
+      "status": "TODO",
+      "title": "GATE.T70.THREAT.FO_DIALOGUE.001: FO threat-level-change reactive dialogue",
+      "intent": "New FO trigger THREAT_LEVEL_CHANGE in FirstOfficerSystem. Content for 3 archetypes x 5 threat transitions (entering TL 2/3/4/5, returning to safe). Examples: 'We're past the patrols now.' / 'No patrols this far out.' / 'Back in safe space.' Track player's previous TL to fire on change.",
+      "evidence_paths": ["SimCore/Systems/FirstOfficerSystem.cs", "SimCore/Content/FirstOfficerContentV0.cs", "SimCore.Tests/Systems/FirstOfficerTests.cs"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FirstOfficer\""],
+      "task_preflight": ["anchor=SimCore/Systems/FirstOfficerSystem.cs"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
+      "parallel_group": "core",
+      "tier": 2,
+      "blocks": ["GATE.T70.THREAT.NODE_THREAT_LEVEL.001"],
+      "hash_affecting": true,
+      "verify": [
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FirstOfficer\""
+      ]
+    },
+    {
+      "gate_id": "GATE.T70.THREAT.GALAXY_VIZ.001",
+      "task_id": "GATE.T70.THREAT.GALAXY_VIZ.001.T158",
+      "status": "TODO",
+      "title": "GATE.T70.THREAT.GALAXY_VIZ.001: Galaxy map threat color overlay + patrol rings",
+      "intent": "Galaxy map nodes color-coded by threat level: Green (TL 0) -> Yellow (TL 1-2) -> Orange (TL 3) -> Red (TL 4) -> Purple (TL 5). Add patrol coverage rings around Haven and faction capitals. Uses GetNodeThreatLevelV0 bridge method. 'Here be dragons' fog on unvisited TL 4+ systems.",
+      "evidence_paths": ["scripts/view/GalaxyView.cs", "scripts/bridge/SimBridge.Haven.cs", "scripts/ui/hud.gd"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo"],
+      "task_preflight": ["anchor=scripts/view/GalaxyView.cs"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
       "parallel_group": "bridge",
-      "tier": 3,
-      "blocks": [],
+      "tier": 2,
+      "blocks": ["GATE.T70.THREAT.BRIDGE_QUERY.001"],
       "hash_affecting": false,
-      "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo"]
+      "verify": [
+        "dotnet build \"Space Trade Empire.csproj\" --nologo"
+      ]
     },
     {
-      "gate_id": "GATE.T52.EVAL.AUDIT_DELTA.001",
-      "task_id": "GATE.T52.EVAL.AUDIT_DELTA.001.T978",
+      "gate_id": "GATE.T70.THREAT.LANE_EVENTS.001",
+      "task_id": "GATE.T70.THREAT.LANE_EVENTS.001.T247",
       "status": "TODO",
-      "title": "GATE.T52.EVAL.AUDIT_DELTA.001: Re-run audit + before/after delta",
-      "intent": "Re-run full audit, compare vs audit_1 baseline. Produce delta table for all dimensions.",
-      "evidence_paths": ["scripts/tools/Run-AuditQuick.ps1", "scripts/tools/Run-FHBot.ps1"],
-      "constraints": ["Single-session scope.", "Tier 3."],
-      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode visual"],
-      "task_preflight": ["anchor=scripts/tools/Run-AuditQuick.ps1"],
-      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
+      "title": "GATE.T70.THREAT.LANE_EVENTS.001: Threat-gated lane transit events",
+      "intent": "Extend RiskSystem with threat-level-gated transit events. Pirate interdiction (TL 2+, 30% at TL 2, 50% at TL 3+). Debris field (TL 3+, hull damage 5-15%). Distress signal (TL 2+, choice event). Events fire on arrival at destination. All rates in ThreatTweaksV0.",
+      "evidence_paths": ["SimCore/Systems/RiskSystem.cs", "SimCore/Tweaks/ThreatTweaksV0.cs", "SimCore.Tests/Systems/RiskDelayTests.cs"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""],
+      "task_preflight": ["anchor=SimCore/Systems/RiskSystem.cs"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
+      "parallel_group": "core",
+      "tier": 2,
+      "blocks": ["GATE.T70.THREAT.NODE_THREAT_LEVEL.001"],
+      "hash_affecting": true,
+      "verify": [
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""
+      ]
+    },
+    {
+      "gate_id": "GATE.T70.THREAT.MARGIN_SCALING.001",
+      "task_id": "GATE.T70.THREAT.MARGIN_SCALING.001.T369",
+      "status": "TODO",
+      "title": "GATE.T70.THREAT.MARGIN_SCALING.001: Trade margin bonus by threat level",
+      "intent": "MarketInitGen seeds higher base margins at higher threat levels. TL 0-1: base margins. TL 2-3: +500bps. TL 4-5: +2000bps. MarginBonusBps array in ThreatTweaksV0. Risk premium = economic incentive to explore dangerous space. Combines with existing market dampening.",
+      "evidence_paths": ["SimCore/Gen/MarketInitGen.cs", "SimCore/Tweaks/ThreatTweaksV0.cs", "SimCore/Tweaks/MarketTweaksV0.cs"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""],
+      "task_preflight": ["anchor=SimCore/Gen/MarketInitGen.cs"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
+      "parallel_group": "core",
+      "tier": 2,
+      "blocks": ["GATE.T70.THREAT.NODE_THREAT_LEVEL.001"],
+      "hash_affecting": true,
+      "verify": [
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""
+      ]
+    },
+    {
+      "gate_id": "GATE.T70.THREAT.NODE_THREAT_LEVEL.001",
+      "task_id": "GATE.T70.THREAT.NODE_THREAT_LEVEL.001.T472",
+      "status": "TODO",
+      "title": "GATE.T70.THREAT.NODE_THREAT_LEVEL.001: BFS Node.ThreatLevel 0-5 from Haven",
+      "intent": "Add ThreatLevel (int 0-5) to Node entity. Compute via BFS hop count from Haven (or nearest faction capital). HopsPerThreatLevel=2 in ThreatTweaksV0 (extend existing file). Recompute on Haven discovery. GalaxyGenerator calls ComputeThreatLevels after topology built. Deterministic, stored per-node.",
+      "evidence_paths": ["SimCore/Entities/Node.cs", "SimCore/Gen/GalaxyGenerator.cs", "SimCore/Tweaks/ThreatTweaksV0.cs", "SimCore.Tests/GoldenReplayTests.cs"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""],
+      "task_preflight": ["anchor=SimCore/Entities/Node.cs"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
+      "parallel_group": "core",
+      "tier": 2,
+      "blocks": [],
+      "hash_affecting": true,
+      "verify": [
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""
+      ]
+    },
+    {
+      "gate_id": "GATE.T70.THREAT.NPC_SCALING.001",
+      "task_id": "GATE.T70.THREAT.NPC_SCALING.001.T518",
+      "status": "TODO",
+      "title": "GATE.T70.THREAT.NPC_SCALING.001: NPC ship class selection by threat level",
+      "intent": "FleetPopulationTweaksV0 gets threat-level-aware ship class selection. TL 0-1: no pirate spawns. TL 2: Scout (weak, flee if player has escort). TL 3: Raider 1-2 ships. TL 4: Marauder 2-3 ships (won't flee). TL 5: Dreadnought boss (rare loot). NpcFleetCombatSystem reads node TL for spawn decisions.",
+      "evidence_paths": ["SimCore/Tweaks/FleetPopulationTweaksV0.cs", "SimCore/Systems/NpcFleetCombatSystem.cs", "SimCore/Tweaks/ThreatTweaksV0.cs"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""],
+      "task_preflight": ["anchor=SimCore/Systems/NpcFleetCombatSystem.cs"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
+      "parallel_group": "core",
+      "tier": 2,
+      "blocks": ["GATE.T70.THREAT.NODE_THREAT_LEVEL.001"],
+      "hash_affecting": true,
+      "verify": [
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"NpcFleetCombat\""
+      ]
+    },
+    {
+      "gate_id": "GATE.T70.UI.COMBAT_JUICE.001",
+      "task_id": "GATE.T70.UI.COMBAT_JUICE.001.T841",
+      "status": "TODO",
+      "title": "GATE.T70.UI.COMBAT_JUICE.001: Combat VFX -- damage flash, shake, vignette, banner",
+      "intent": "Add GDScript VFX responses to bridge combat events. Hull damage triggers red flash (ColorRect alpha pulse) + screen shake (camera offset). Kill triggers vignette pulse. Combat entry shows combat banner text. Credits flash on loot pickup. All 5 VFX channels currently absent (juice index 28/100). Target: 50+/100.",
+      "evidence_paths": ["scripts/ui/hud.gd", "scripts/view/GalaxyView.cs"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo"],
+      "task_preflight": ["anchor=scripts/ui/hud.gd"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
+      "parallel_group": "bridge",
+      "tier": 1,
+      "blocks": [],
+      "hash_affecting": false,
+      "verify": [
+        "dotnet build \"Space Trade Empire.csproj\" --nologo"
+      ]
+    },
+    {
+      "gate_id": "GATE.T70.UI.TOAST_TYPES.001",
+      "task_id": "GATE.T70.UI.TOAST_TYPES.001.T209",
+      "status": "TODO",
+      "title": "GATE.T70.UI.TOAST_TYPES.001: Color-coded toast types, remove bracket tags",
+      "intent": "Fix DEVELOPER_UI flag: all toasts identical white-on-grey with bracket tags. Color-code by type: FO=blue (#4a9eff), alert=red (#ff4a4a), milestone=gold (#ffd700), system=grey (#aaaaaa). Remove [FO]/[ALERT] bracket prefix tags. Toast manager gets ToastType enum parameter.",
+      "evidence_paths": ["scripts/ui/hud.gd", "scripts/ui/toast_manager.gd"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo"],
+      "task_preflight": ["anchor=scripts/ui/toast_manager.gd"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
+      "parallel_group": "bridge",
+      "tier": 1,
+      "blocks": [],
+      "hash_affecting": false,
+      "verify": [
+        "dotnet build \"Space Trade Empire.csproj\" --nologo"
+      ]
+    },
+    {
+      "gate_id": "GATE.T70.COMBAT.LOOT_ELITE.001",
+      "task_id": "GATE.T70.COMBAT.LOOT_ELITE.001.T673",
+      "status": "TODO",
+      "title": "GATE.T70.COMBAT.LOOT_ELITE.001: Loot pity fix + TL4+ elite pirate drops",
+      "intent": "Base loot fix: PityThreshold 5->3, guaranteed minimum salvage on every kill. TL 4+ elite pirates (Marauder/Dreadnought class) drop module components. LootTweaksV0 gets ThreatLevelEliteDropChanceBps array. Ensures combat reward scales with danger.",
+      "evidence_paths": ["SimCore/Systems/NpcFleetCombatSystem.cs", "SimCore/Tweaks/LootTweaksV0.cs", "SimCore.Tests/Systems/NpcFleetCombatSystemTests.cs"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"NpcFleetCombat\""],
+      "task_preflight": ["anchor=SimCore/Systems/NpcFleetCombatSystem.cs"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
+      "parallel_group": "core",
+      "tier": 2,
+      "blocks": ["GATE.T70.THREAT.NODE_THREAT_LEVEL.001"],
+      "hash_affecting": true,
+      "verify": [
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"NpcFleetCombat\""
+      ]
+    },
+    {
+      "gate_id": "GATE.T70.ECON.MARKET_VOLATILITY.001",
+      "task_id": "GATE.T70.ECON.MARKET_VOLATILITY.001.T427",
+      "status": "TODO",
+      "title": "GATE.T70.ECON.MARKET_VOLATILITY.001: Per-trade price drift via supply/demand",
+      "intent": "ROOT CAUSE of route grind (backtrack 96.5%, route_repeat 26-29). Add per-trade price shift to MarketSystem: buy depletes supply (price rises by VolatilityShiftBps), sell adds supply (price drops). MarketTweaksV0 gets VolatilityShiftBps, MaxVolatilityDriftBps. Prices now change within a session.",
+      "evidence_paths": ["SimCore/Systems/MarketSystem.cs", "SimCore/Tweaks/MarketTweaksV0.cs", "SimCore.Tests/Systems/MarketPublishCadenceTests.cs"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""],
+      "task_preflight": ["anchor=SimCore/Systems/MarketSystem.cs"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
+      "parallel_group": "core",
+      "tier": 1,
+      "blocks": [],
+      "hash_affecting": true,
+      "verify": [
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Market\""
+      ]
+    },
+    {
+      "gate_id": "GATE.T70.ECON.PRICE_FLOOR.001",
+      "task_id": "GATE.T70.ECON.PRICE_FLOOR.001.T183",
+      "status": "TODO",
+      "title": "GATE.T70.ECON.PRICE_FLOOR.001: Enforce minimum buy price in MarketInitGen",
+      "intent": "Fix munitions 2cr exploit (20,800% margins, credits 750K+ all seeds). MarketInitGen enforces floor: no good buy price < production cost. CatalogTweaksV0 gets MinBuyPriceFloorBps (percentage of base price). Target: max single-good margin < 500%.",
+      "evidence_paths": ["SimCore/Gen/MarketInitGen.cs", "SimCore/Tweaks/CatalogTweaksV0.cs", "SimCore.Tests/GoldenReplayTests.cs"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""],
+      "task_preflight": ["anchor=SimCore/Gen/MarketInitGen.cs"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
+      "parallel_group": "core",
+      "tier": 1,
+      "blocks": [],
+      "hash_affecting": true,
+      "verify": [
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""
+      ]
+    },
+    {
+      "gate_id": "GATE.X.EVAL.DANGER_DESIGN_REVIEW.001",
+      "task_id": "GATE.X.EVAL.DANGER_DESIGN_REVIEW.001.T437",
+      "status": "TODO",
+      "title": "GATE.X.EVAL.DANGER_DESIGN_REVIEW.001: Validate TDG vs design doc",
+      "intent": "Design review: validate travel danger gradient implementation against docs/design/travel_danger_gradient_v0.md. Answer 5 open questions (Haven-relative vs fixed, faction territory, interdiction timing, TL visibility, dynamic TL). Document decisions in design doc.",
+      "evidence_paths": ["docs/design/travel_danger_gradient_v0.md", "SimCore/Tweaks/ThreatTweaksV0.cs"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"RoadmapConsistency\""],
+      "task_preflight": ["anchor=docs/design/travel_danger_gradient_v0.md"],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
       "parallel_group": "docs",
       "tier": 3,
-      "blocks": [],
+      "blocks": ["GATE.T70.THREAT.NODE_THREAT_LEVEL.001", "GATE.T70.THREAT.NPC_SCALING.001", "GATE.T70.THREAT.MARGIN_SCALING.001", "GATE.T70.THREAT.LANE_EVENTS.001"],
       "hash_affecting": false,
-      "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"]
+      "verify": [
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"RoadmapConsistency\""
+      ]
     },
     {
-      "gate_id": "GATE.T58.PROOF.FO_MANAGER_E2E.001",
-      "task_id": "GATE.T58.PROOF.FO_MANAGER_E2E.001.T714",
+      "gate_id": "GATE.X.HYGIENE.EPIC_REVIEW.071",
+      "task_id": "GATE.X.HYGIENE.EPIC_REVIEW.071.T819",
       "status": "TODO",
-      "title": "GATE.T58.PROOF.FO_MANAGER_E2E.001: FO Manager E2E headless proof",
-      "intent": "Headless Godot proof: dock, verify recap displayed, check empire health diamond, view consolidated 5-tab dashboard, FO decision flow, service record visible. Milestone: PLAYABLE_BEAT.",
-      "evidence_paths": ["scripts/tests/test_deep_systems_v0.gd", "scripts/bridge/SimBridge.FO.cs"],
-      "constraints": ["Single-session scope.", "Requires all T58 FO bridge + UI gates done."],
-      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot-MultiSeed.ps1 -Script deep_systems -Seeds 42"],
-      "task_preflight": ["anchor=scripts/tests/test_deep_systems_v0.gd"],
-      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
-      "parallel_group": "docs",
-      "tier": 3,
-      "blocks": [],
-      "hash_affecting": false,
-      "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FOManager\""]
-    },
-    {
-      "gate_id": "GATE.T64.PROOF.AUDIT_DELTA.001",
-      "task_id": "GATE.T64.PROOF.AUDIT_DELTA.001.T564",
-      "status": "TODO",
-      "title": "GATE.T64.PROOF.AUDIT_DELTA.001: Re-audit first-hour, audit_13->audit_14 delta",
-      "intent": "Re-run /audit first-hour (audit_14) after all T64 fixes. Compare vs audit_13: 20 dimensions, 5 goals, 5 moments, emotional arc, feel dashboard. Target: 0 CRITICAL, <=3 MAJOR, Goal avg >=4.0, EA readiness CONDITIONAL->READY. Milestone: REGRESSION_ANCHOR.",
-      "evidence_paths": ["scripts/tools/Run-FHBot.ps1", "scripts/tools/Run-ExperienceBot.ps1"],
-      "constraints": ["Single-session scope.", "Tier 3: all T64 fix gates must be DONE."],
-      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode visual"],
-      "task_preflight": ["anchor=scripts/tools/Run-FHBot.ps1"],
-      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
-      "parallel_group": "docs",
-      "tier": 3,
-      "blocks": [],
-      "hash_affecting": false,
-      "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"]
-    },
-    {
-      "gate_id": "GATE.X.EVAL.BATTLE_STATIONS.001",
-      "task_id": "GATE.X.EVAL.BATTLE_STATIONS.001.T316",
-      "status": "TODO",
-      "title": "GATE.X.EVAL.BATTLE_STATIONS.001: Post-implementation spin eval",
-      "intent": "Evaluate battle stations: run deep systems bot, verify spin activates before combat, hull damage occurs, transition timing correct, audio/visual present. Assess eval issues #4/#6/#8 thresholds.",
-      "evidence_paths": ["scripts/tests/test_deep_systems_v0.gd", "docs/54_EPICS.md"],
-      "constraints": ["Single-session scope."],
-      "completion_hint": ["powershell -File scripts/tools/Run-Tests.ps1 -Filter \"RoadmapConsistency\""],
-      "task_preflight": ["anchor=scripts/tests/test_deep_systems_v0.gd"],
-      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
-      "parallel_group": "docs",
-      "tier": 3,
-      "blocks": [],
-      "hash_affecting": false,
-      "verify": ["powershell -File scripts/tools/Run-Tests.ps1 -Filter \"RoadmapConsistency\""]
-    },
-    {
-      "gate_id": "GATE.X.EVAL.FH_DEPTH_PROOF.001",
-      "task_id": "GATE.X.EVAL.FH_DEPTH_PROOF.001.T812",
-      "status": "TODO",
-      "title": "GATE.X.EVAL.FH_DEPTH_PROOF.001: Re-run fh_6 audit, fh_5 vs fh_6 delta",
-      "intent": "Re-run /audit first-hour (fh_6) after all T63 fixes. Compare vs fh_5: 20 dimensions, 5 goals, 5 moments, emotional arc, feel dashboard. Target: 0 CRITICAL, <=3 MAJOR, Juice >50%, Spatial >3/5. Milestone: REGRESSION_ANCHOR.",
-      "evidence_paths": ["scripts/tools/Run-FHBot.ps1", "scripts/tools/Run-ExperienceBot.ps1"],
-      "constraints": ["Single-session scope.", "Tier 3: all T63 fix gates must be DONE."],
-      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode visual"],
-      "task_preflight": ["anchor=scripts/tools/Run-FHBot.ps1"],
-      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
-      "parallel_group": "docs",
-      "tier": 3,
-      "blocks": [],
-      "hash_affecting": false,
-      "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"]
-    },
-    {
-      "gate_id": "GATE.X.EVAL.PERF_PROFILE.063",
-      "task_id": "GATE.X.EVAL.PERF_PROFILE.063.T475",
-      "status": "TODO",
-      "title": "GATE.X.EVAL.PERF_PROFILE.063: FPS profiling session",
-      "intent": "Profile FPS bottleneck: run visual bot with FPS logging, identify frames below 30fps, measure per-system tick budget breakdown, propose optimization targets. EA readiness blocker (min=12fps needs >=30).",
-      "evidence_paths": ["scripts/tools/Run-FHBot.ps1", "docs/design/camera_cinematics_v0.md"],
-      "constraints": ["Single-session scope.", "Tier 3."],
-      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode visual"],
-      "task_preflight": ["anchor=scripts/tools/Run-FHBot.ps1"],
-      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
-      "parallel_group": "docs",
-      "tier": 3,
-      "blocks": [],
-      "hash_affecting": false,
-      "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"]
-    },
-    {
-      "gate_id": "GATE.X.HYGIENE.EPIC_REVIEW.065",
-      "task_id": "GATE.X.HYGIENE.EPIC_REVIEW.065.T453",
-      "status": "TODO",
-      "title": "GATE.X.HYGIENE.EPIC_REVIEW.065: Audit epic statuses, close completed epics",
-      "intent": "Audit all epic statuses vs completed gates. Close epics where all gates DONE. Identify superseded TODO gates (T41.PROOF.FH_REAUDIT, T52.EVAL.AUDIT_DELTA, X.EVAL.FH_DEPTH_PROOF). Recommend next anchor epic for T65.",
+      "title": "GATE.X.HYGIENE.EPIC_REVIEW.071: Epic audit — create T70, update statuses",
+      "intent": "Audit epic statuses against completed gates. Create EPIC.T70.DANGER_GRADIENT.V0 if not yet added. Close any epics with all gates DONE. Recommend T71 anchor. Update 54_EPICS.md and 55_GATES.md.",
       "evidence_paths": ["docs/54_EPICS.md", "docs/55_GATES.md"],
-      "constraints": ["Single-session scope.", "Tier 3: runs last."],
-      "completion_hint": ["powershell -File scripts/tools/Run-Tests.ps1 -Filter \"RoadmapConsistency\""],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"RoadmapConsistency\""],
       "task_preflight": ["anchor=docs/54_EPICS.md"],
-      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked."}],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
       "parallel_group": "docs",
       "tier": 3,
-      "blocks": [],
+      "blocks": ["GATE.T70.PROOF.FH_AUDIT.001"],
       "hash_affecting": false,
-      "verify": ["powershell -File scripts/tools/Run-Tests.ps1 -Filter \"RoadmapConsistency\""]
+      "verify": [
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"RoadmapConsistency\""
+      ]
     },
     {
-      "gate_id": "GATE.X.HYGIENE.REPO_HEALTH.065",
-      "task_id": "GATE.X.HYGIENE.REPO_HEALTH.065.T142",
+      "gate_id": "GATE.X.HYGIENE.REPO_HEALTH.070",
+      "task_id": "GATE.X.HYGIENE.REPO_HEALTH.070.T635",
       "status": "TODO",
-      "title": "GATE.X.HYGIENE.REPO_HEALTH.065: Full test suite + warning scan + hash stability",
-      "intent": "Run full C# test suite, semgrep, optimize scan (quick mode). Verify golden hashes stable. Report warning count and dead code signals. Baseline for T64.",
+      "title": "GATE.X.HYGIENE.REPO_HEALTH.070: T70 health baseline — full suite + hash",
+      "intent": "T70 health baseline. Full test suite pass, golden hash stability across 5 seeds, dead code scan, build warning scan. Docs T1.",
       "evidence_paths": ["SimCore.Tests/SimCore.Tests.csproj", "scripts/tools/Run-AuditQuick.ps1"],
-      "constraints": ["Single-session scope."],
-      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-AuditQuick.ps1"],
+      "constraints": [
+        "Single-session scope: stay within evidence and expected touch paths.",
+        "If evidence is missing or tests fail, escalate via DEFAULT."
+      ],
+      "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"],
       "task_preflight": ["anchor=SimCore.Tests/SimCore.Tests.csproj"],
-      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked."}],
+      "escalation_rules": [
+        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+      ],
       "parallel_group": "docs",
       "tier": 1,
       "blocks": [],
       "hash_affecting": false,
-      "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"]
+      "verify": [
+        "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"
+      ]
     }
   ]
 }

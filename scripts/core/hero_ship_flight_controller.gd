@@ -57,6 +57,13 @@ const STATION_REPEL_FORCE: float = 150.0
 const SHIP_SEPARATION_FORCE: float = 80.0
 const SHIP_SEPARATION_RADIUS: float = 8.0
 
+# GATE.T67.PERF.FPS_OPTIMIZE.001: Cached group queries for obstacle avoidance.
+var _cached_planets: Array = []
+var _cached_stations: Array = []
+var _cached_npc_ships: Array = []
+var _group_cache_frame: int = -1
+const GROUP_CACHE_INTERVAL: int = 6  # Player ship refreshes faster (10Hz) for responsiveness.
+
 # ── State ──
 var _nav_target: Vector3 = Vector3.ZERO
 var _nav_active: bool = false
@@ -468,8 +475,21 @@ func test_clear_turn_axis_v0():
 	_test_turn_axis_v0 = null
 
 
+## GATE.T67.PERF.FPS_OPTIMIZE.001: Refresh cached group arrays for obstacle avoidance.
+func _refresh_obstacle_cache() -> void:
+	var frame: int = Engine.get_physics_frames()
+	if frame != _group_cache_frame:
+		_group_cache_frame = frame
+		if frame % GROUP_CACHE_INTERVAL == 0:
+			_cached_planets = get_tree().get_nodes_in_group("PlanetBody")
+			_cached_stations = get_tree().get_nodes_in_group("Station")
+			_cached_npc_ships = get_tree().get_nodes_in_group("NpcShip")
+
+
 ## Obstacle avoidance: Y-lift over planets, XZ repulsion around stations/ships.
 func _apply_obstacle_avoidance(_delta: float = 0.0) -> void:
+	_refresh_obstacle_cache()
+
 	# ── Y-return spring: pull ship toward current system's Y ──
 	var system_y: float = _get_current_system_y()
 	var y_offset: float = global_position.y - system_y
@@ -477,7 +497,9 @@ func _apply_obstacle_avoidance(_delta: float = 0.0) -> void:
 	apply_central_force(Vector3(0.0, -y_offset * Y_SPRING_K - y_vel * Y_DAMP_K, 0.0))
 
 	# ── Planets: Y-lift (fly over the sphere) ──
-	for planet in get_tree().get_nodes_in_group("PlanetBody"):
+	for planet in _cached_planets:
+		if not is_instance_valid(planet):
+			continue
 		var to_planet: Vector3 = planet.global_position - global_position
 		to_planet.y = 0.0
 		var dist: float = to_planet.length()
@@ -492,7 +514,9 @@ func _apply_obstacle_avoidance(_delta: float = 0.0) -> void:
 				apply_central_force(Vector3(0.0, lift * clampf(y_deficit / target_y, 0.0, 1.0), 0.0))
 
 	# ── Stations: XZ repulsion ──
-	for station in get_tree().get_nodes_in_group("Station"):
+	for station in _cached_stations:
+		if not is_instance_valid(station):
+			continue
 		if not station is Node3D:
 			continue
 		var to_station: Vector3 = station.global_position - global_position
@@ -505,7 +529,9 @@ func _apply_obstacle_avoidance(_delta: float = 0.0) -> void:
 			apply_central_force(-to_station.normalized() * strength)
 
 	# ── Ship-ship separation: XZ repulsion from NPC ships ──
-	for ship in get_tree().get_nodes_in_group("NpcShip"):
+	for ship in _cached_npc_ships:
+		if not is_instance_valid(ship):
+			continue
 		var to_ship: Vector3 = ship.global_position - global_position
 		to_ship.y = 0.0
 		var dist: float = to_ship.length()

@@ -12,7 +12,7 @@
 extends SceneTree
 
 const PREFIX := "VFY"
-const MAX_FRAMES := 5400  # 90s at 60fps
+const MAX_FRAMES := 9000  # 150s at 60fps — increased for 200-decision FO silence measurement
 const TICK_ADVANCE := 5
 
 # Settle timings (frames at ~60fps) — generous for visual mode
@@ -98,11 +98,32 @@ var _discoveries := 0
 var _decision := 0
 var _event_counts: Dictionary = {}  # per 50-decision window
 
+# fh_14: FO tracking via bridge state
+var _fo_last_dialogue_count := 0  # last seen dialogue_count from GetFirstOfficerStateV0
+var _fo_promoted := false
+var _fo_lines_at_50 := 0   # FO line count at decision 50
+var _fo_lines_at_150 := 0  # FO line count at decision 150
+
+# fh_10 issue tracking — new probes
+var _fo_last_line_decision := 0
+var _fo_silence_max_decisions := 0
+var _route_repeat_max := 0  # highest single-route frequency
+var _action_streak_max := 0
+var _action_streak_current := 1
+var _last_action_type := ""
+var _backtrack_count := 0
+var _combat_total_rounds := 0  # sum of rounds across all combats
+var _combat_count_for_rounds := 0  # combats where we measured rounds
+var _combat_one_shot := 0  # combats ending in 1 round
+var _loot_combats_tracked := 0
+var _loot_combats_rewarded := 0
+
 # Feel state
 var _feel_damage_flash := false
 var _feel_credits_flash := false
 var _feel_vignette := false
 var _feel_shake_max := 0.0
+var _feel_last_cam_pos := Vector3.ZERO  # GATE.T66: track camera for shake measurement
 var _feel_combat_banner := false
 var _feel_toast_typed := false  # toasts have type differentiation
 
@@ -323,6 +344,28 @@ func _do_wait_local() -> void:
 	_a.log("INIT|home=%s nodes=%d edges=%d credits=%d" % [
 		_home_node, _all_nodes.size(), _all_edges.size(), _credits_at_start])
 
+	# fh_14: Promote FO so silence/dialogue probes work.
+	# Without this, FO never speaks and fo_silence_decisions always reads 0.
+	if _bridge.has_method("PromoteFirstOfficerV0"):
+		var promoted: bool = _bridge.call("PromoteFirstOfficerV0", "Analyst")
+		_fo_promoted = promoted
+		_a.log("FO_PROMOTE|success=%s type=Analyst" % str(promoted))
+		if promoted:
+			# Advance a few ticks so FO system processes the promotion
+			_tick_advance(10)
+			# Consume any immediate dialogue (e.g. greeting)
+			if _bridge.has_method("GetFirstOfficerDialogueV0"):
+				var line: String = _bridge.call("GetFirstOfficerDialogueV0")
+				if line.length() > 0:
+					_fo_line_count += 1
+					_a.log("FO_INITIAL_LINE|%s" % line.substr(0, 80))
+			# Snapshot initial dialogue count
+			if _bridge.has_method("GetFirstOfficerStateV0"):
+				var fo_state: Dictionary = _bridge.call("GetFirstOfficerStateV0")
+				_fo_last_dialogue_count = int(fo_state.get("dialogue_count", 0))
+	else:
+		_a.log("FO_PROMOTE|no_method")
+
 	_phase = Phase.BOOT_PROBES
 	_settle_frames = 10
 
@@ -366,15 +409,21 @@ func _headless_travel(dest: String) -> void:
 		if _game_manager.get("current_player_state") != null:
 			_game_manager.call("on_lane_gate_proximity_entered_v0", dest)
 			_game_manager.call("on_lane_arrival_v0", dest)
+	var prev_node := _current_node  # GATE.T66: save before update to avoid self-loop
 	_current_node = dest
+	# Track backtrack (revisit) count
+	if _visited.has(dest):
+		_backtrack_count += 1
 	_visited[dest] = true
 	_total_travels += 1
-	var route_key := "%s->%s" % [_current_node, dest]
+	var route_key := "%s->%s" % [prev_node, dest]
 	_unique_routes[route_key] = _unique_routes.get(route_key, 0) + 1
+	# Track action streak
+	_track_action("TRAVEL")
 
 
 func _do_dock() -> void:
-	if _game_manager:
+	if _game_manager and is_instance_valid(_game_manager):
 		# Clear hostile fleet ships to allow docking
 		for ship in get_nodes_in_group("FleetShip"):
 			if is_instance_valid(ship):
@@ -412,6 +461,17 @@ func _get_cargo_qty(good_id: String) -> int:
 	return 0
 
 
+func _get_total_cargo_count() -> int:
+	if not _bridge or not _bridge.has_method("GetPlayerCargoV0"):
+		return 0
+	var cargo: Array = _bridge.call("GetPlayerCargoV0")
+	var total := 0
+	for item in cargo:
+		if item is Dictionary:
+			total += int(item.get("qty", 0))
+	return total
+
+
 func _tick_advance(n: int = TICK_ADVANCE) -> void:
 	if _bridge.has_method("DebugAdvanceTicksV0"):
 		_bridge.call("DebugAdvanceTicksV0", n)
@@ -421,7 +481,7 @@ func _sample_feel() -> void:
 	if not _is_visual:
 		return
 	var hud = root.find_child("HUD", true, false)
-	if not hud:
+	if not hud or not is_instance_valid(hud):
 		return
 
 	var df = hud.find_child("DamageFlash", true, false)
@@ -432,28 +492,97 @@ func _sample_feel() -> void:
 	if cf and cf is ColorRect and cf.color.a > 0.01:
 		_feel_credits_flash = true
 
-	for child in hud.get_children():
-		if child is ColorRect and child.name.contains("Combat") and child.visible:
-			if child is ColorRect and child.color.a > 0.01:
-				_feel_vignette = true
-		if child is Label and child.name.contains("Combat") and child.visible and child.text.length() > 0:
-			_feel_combat_banner = true
+	# GATE.T66: Sample camera shake by measuring position delta frame-to-frame
+	var cam = root.find_child("DroneCamera", true, false)
+	if cam == null:
+		cam = root.find_child("MapCamera", true, false)
+	if cam and cam is Node3D:
+		var cur_pos: Vector3 = (cam as Node3D).global_position
+		if _feel_last_cam_pos != Vector3.ZERO:
+			var delta_mag: float = cur_pos.distance_to(_feel_last_cam_pos)
+			if delta_mag > _feel_shake_max:
+				_feel_shake_max = delta_mag
+		_feel_last_cam_pos = cur_pos
+
+	# GATE.T66: Search full scene tree for vignette/banner (not just HUD children).
+	# DamageVignette is in a CanvasLayer, combat banner may be anywhere.
+	var vignette = root.find_child("DamageVignette", true, false)
+	if vignette == null:
+		vignette = root.find_child("CombatVignette", true, false)
+	if vignette and vignette is CanvasItem and vignette.visible:
+		if vignette is ColorRect and vignette.color.a > 0.01:
+			_feel_vignette = true
+		elif vignette.modulate.a > 0.01:
+			_feel_vignette = true
+
+	# Combat banner: search tree for any label with combat-related name
+	var banner = root.find_child("CombatBanner", true, false)
+	if banner == null:
+		banner = root.find_child("BattleBanner", true, false)
+	if banner == null:
+		# Fallback: check HUD children for any visible combat label
+		for child in hud.get_children():
+			if child is Label and child.visible and child.text.length() > 0:
+				if child.name.contains("Combat") or child.name.contains("Battle"):
+					banner = child
+					break
+	if banner and banner is Label and banner.visible and banner.text.length() > 0:
+		_feel_combat_banner = true
+	elif banner and banner is CanvasItem and banner.visible:
+		_feel_combat_banner = true
 
 
 func _track_fo() -> void:
 	if not _bridge or not _bridge.has_method("GetSimTickV0"):
 		return
 	var tick := int(_bridge.call("GetSimTickV0"))
-	# Check FO dialogue via bridge
+	var fo_spoke := false
+
+	# Method 1: Check HUD events (works in visual mode)
 	if _bridge.has_method("GetRecentHudEventsV0"):
 		var events: Array = _bridge.call("GetRecentHudEventsV0")
 		for ev in events:
 			if ev is Dictionary and str(ev.get("type", "")).contains("fo"):
-				_fo_line_count += 1
-				var gap := tick - _fo_last_line_tick
-				if gap > _fo_silence_max and _fo_last_line_tick > 0:
-					_fo_silence_max = gap
-				_fo_last_line_tick = tick
+				fo_spoke = true
+
+	# Method 2 (fh_14): Check FO dialogue_count via bridge state (works in headless)
+	# This catches FO lines that don't generate HUD events
+	if _bridge.has_method("GetFirstOfficerStateV0"):
+		var fo_state: Dictionary = _bridge.call("GetFirstOfficerStateV0")
+		if fo_state is Dictionary:
+			var current_count := int(fo_state.get("dialogue_count", 0))
+			if current_count > _fo_last_dialogue_count:
+				fo_spoke = true
+				_fo_last_dialogue_count = current_count
+
+	# Method 3 (fh_14): Consume pending dialogue line (prevents accumulation)
+	if _bridge.has_method("GetFirstOfficerDialogueV0"):
+		var line: String = _bridge.call("GetFirstOfficerDialogueV0")
+		if line.length() > 0:
+			fo_spoke = true
+
+	if fo_spoke:
+		_fo_line_count += 1
+		# Tick-based silence (original)
+		var gap := tick - _fo_last_line_tick
+		if gap > _fo_silence_max and _fo_last_line_tick > 0:
+			_fo_silence_max = gap
+		_fo_last_line_tick = tick
+		# Decision-based silence (fh_10 addition)
+		var decision_gap := _decision - _fo_last_line_decision
+		if decision_gap > _fo_silence_max_decisions and _fo_last_line_decision > 0:
+			_fo_silence_max_decisions = decision_gap
+		_fo_last_line_decision = _decision
+
+
+func _track_action(action_type: String) -> void:
+	if action_type == _last_action_type:
+		_action_streak_current += 1
+	else:
+		_action_streak_current = 1
+	_last_action_type = action_type
+	if _action_streak_current > _action_streak_max:
+		_action_streak_max = _action_streak_current
 
 
 func _verify(probe: String, confirmed: bool, evidence: String) -> void:
@@ -546,22 +675,22 @@ func _do_dock_probes() -> void:
 		_skip("tab_disclosure", "no_GetOnboardingStateV0")
 		_skip("system_dump", "no_GetOnboardingStateV0")
 
-	# PROBE: FO dock greeting
+	# PROBE: FO dock greeting — fh_14: fixed method name GetFOStateV0 → GetFirstOfficerStateV0
 	_track_fo()
 	_fo_lines_at_dock = _fo_line_count
-	# Also check FO state directly
-	if _bridge.has_method("GetFOStateV0"):
-		var fo: Dictionary = _bridge.call("GetFOStateV0")
+	if _bridge.has_method("GetFirstOfficerStateV0"):
+		var fo: Dictionary = _bridge.call("GetFirstOfficerStateV0")
 		if fo is Dictionary:
-			var lines := int(fo.get("total_lines", 0))
-			_verify("fo_dock_greeting", lines > 0,
-				"fo_lines_at_first_dock=%d" % lines)
+			var dialogue_count := int(fo.get("dialogue_count", 0))
+			_verify("fo_dock_greeting", dialogue_count > 0 or _fo_line_count > 0,
+				"dialogue_count=%d fo_lines_tracked=%d promoted=%s" % [
+					dialogue_count, _fo_line_count, str(_fo_promoted)])
 		else:
 			_verify("fo_dock_greeting", _fo_line_count > 0,
-				"fo_lines_tracked=%d" % _fo_line_count)
+				"fo_lines_tracked=%d promoted=%s" % [_fo_line_count, str(_fo_promoted)])
 	else:
 		_verify("fo_dock_greeting", _fo_line_count > 0,
-			"fo_lines_tracked=%d" % _fo_line_count)
+			"fo_lines_tracked=%d promoted=%s" % [_fo_line_count, str(_fo_promoted)])
 
 	# PROBE: Keybind hints visible (visual only)
 	if _is_visual:
@@ -622,10 +751,11 @@ func _do_sell() -> void:
 		var sell_qty := maxi(actual_held, 1)
 		_a.log("SELL_PRE|good=%s held=%d requested=%d" % [_bought_good_id, actual_held, _bought_qty])
 		_bridge.call("DispatchPlayerTradeV0", _current_node, _bought_good_id, sell_qty, false)
-		_tick_advance(3)
 
-		# Sample feel immediately after sell
+		# GATE.T66: Sample feel BEFORE tick advance — credits flash tween (0.8s) fades fast
 		_sample_feel()
+		_tick_advance(3)
+		_sample_feel()  # second sample in case flash triggers on next frame
 
 		ps = _bridge.call("GetPlayerStateV0")
 		_credits_after_sell = int(ps.get("credits", 0))
@@ -979,7 +1109,8 @@ var _agg_valence_crossings := 0
 var _agg_last_valence := 0  # +1 = positive, -1 = negative
 
 func _do_aggregate_play() -> void:
-	if _decision >= 100:
+	# fh_14: Increased from 100→200 to catch FO silence gaps of 135-282 decisions
+	if _decision >= 200:
 		_phase = Phase.METRIC_PROBES
 		return
 
@@ -1016,6 +1147,7 @@ func _do_aggregate_play() -> void:
 						_agg_holding_qty = buy_qty
 						_agg_buy_price = best_price
 						_credits_spent += credits - post_credits
+						_track_action("BUY")
 		# Travel to neighbor for sell
 		var neighbors := _get_neighbors(loc)
 		if neighbors.size() > 0:
@@ -1034,7 +1166,7 @@ func _do_aggregate_play() -> void:
 			var margin := credits_after - _agg_credits_before_trade
 			_credits_earned += maxi(credits_after - credits, 0)
 			_total_trades += 1
-			if _decision <= 50:
+			if _decision <= 100:
 				_early_margins.append(margin)
 			else:
 				_late_margins.append(margin)
@@ -1046,11 +1178,50 @@ func _do_aggregate_play() -> void:
 			_agg_event_log.append({"decision": _decision, "margin": margin})
 		_agg_holding_good = ""
 		_agg_holding_qty = 0
+		_track_action("SELL")
+
 		# Travel onward
 		var neighbors := _get_neighbors(loc)
 		if neighbors.size() > 0:
 			var dest: String = neighbors[(_decision + 3) % neighbors.size()]
 			_headless_travel(dest)
+
+	# Periodically trigger REAL combat to measure loot rate and round count
+	# Uses ResolveCombatV0 (actual combat resolution) instead of ForceIncrement
+	# which bypasses loot generation. Gets NPC fleet from system snapshot.
+	# Runs outside buy/sell branch, every 10 decisions for sufficient samples.
+	if _decision % 10 == 0 and _bridge.has_method("ResolveCombatV0"):
+		var combat_loc: String = str(_bridge.call("GetPlayerStateV0").get("current_node_id", ""))
+		var sys_snap: Dictionary = _bridge.call("GetSystemSnapshotV0", combat_loc)
+		var sys_fleets: Array = sys_snap.get("fleets", [])
+		var npc_fleet_id := ""
+		for f in sys_fleets:
+			if f is Dictionary:
+				var fid: String = str(f.get("fleet_id", ""))
+				if not fid.is_empty() and fid != "fleet_trader_1":
+					npc_fleet_id = fid
+					break
+		if not npc_fleet_id.is_empty():
+			var pre_credits := int(_bridge.call("GetPlayerStateV0").get("credits", 0))
+			var pre_cargo := _get_total_cargo_count()
+			var result: Dictionary = _bridge.call("ResolveCombatV0", "fleet_trader_1", npc_fleet_id)
+			_tick_advance(5)
+			var rounds := int(result.get("rounds", 0))
+			var salvage := int(result.get("salvage", 0))
+			_combat_total_rounds += rounds
+			_combat_count_for_rounds += 1
+			if rounds <= 1:
+				_combat_one_shot += 1
+			_kills += 1
+			_loot_combats_tracked += 1
+			var post_credits_c := int(_bridge.call("GetPlayerStateV0").get("credits", 0))
+			var post_cargo := _get_total_cargo_count()
+			if post_credits_c > pre_credits or post_cargo > pre_cargo or salvage > 0:
+				_loot_combats_rewarded += 1
+			# Repair after combat
+			if _bridge.has_method("ForceRepairPlayerHullV0"):
+				_bridge.call("ForceRepairPlayerHullV0")
+			_track_action("COMBAT")
 
 	_tick_advance()
 	_track_fo()
@@ -1059,6 +1230,13 @@ func _do_aggregate_play() -> void:
 	var window: int = _decision / 25
 	if _total_trades > 0:
 		_event_counts[window] = _event_counts.get(window, 0) + 1
+
+	# fh_14: Track FO content exhaustion — did FO stop speaking after initial burst?
+	# If FO spoke in first 50 decisions but not in last 50, content is exhausting
+	if _decision == 50:
+		_fo_lines_at_50 = _fo_line_count
+	elif _decision == 150:
+		_fo_lines_at_150 = _fo_line_count
 
 
 # ---- Group 9: Metric probes ----
@@ -1169,13 +1347,14 @@ func _do_metric_probes() -> void:
 	# PROBE: Reward desert — any 25-decision window with 0 events?
 	var max_dry_window := 0
 	var dry_windows := 0
-	for w in range(4):  # 4 windows of 25 decisions = 100
+	var total_windows := _decision / 25  # fh_14: dynamic based on actual decisions played
+	for w in range(total_windows):
 		var count: int = _event_counts.get(w, 0)
 		if count == 0:
 			dry_windows += 1
 			max_dry_window = maxi(max_dry_window, 25)
 	_verify("reward_desert", dry_windows == 0,
-		"dry_windows=%d of 4 (25-decision each)" % dry_windows)
+		"dry_windows=%d of %d (25-decision each)" % [dry_windows, total_windows])
 
 	# PROBE: Catharsis — at least one positive event after a negative one
 	var had_negative := false
@@ -1194,6 +1373,119 @@ func _do_metric_probes() -> void:
 	_verify("valence_crossings", _agg_valence_crossings > 0,
 		"crossings=%d (0 = monotone experience)" % _agg_valence_crossings)
 
+	# ---- fh_10 new probes ----
+
+	# PROBE: FO silence measured in DECISIONS (not ticks) — fixes unit mismatch
+	# fh_10 PROBLEM #3: experience bot measured 254-396 decisions; verification measured 0 ticks
+	# If FO never spoke at all, that's the real silence issue — report total decisions as gap
+	if _fo_line_count == 0 and _decision > 10:
+		_verify("fo_silence_decisions", false,
+			"max_silence_decisions=%d fo_lines=0 (FO never spoke in %d decisions)" % [
+				_decision, _decision])
+	else:
+		_verify("fo_silence_decisions", _fo_silence_max_decisions < 50,
+			"max_silence_decisions=%d fo_lines=%d (target: <50 decisions between FO lines)" % [
+				_fo_silence_max_decisions, _fo_line_count])
+
+	# PROBE: Route repeat max — highest frequency of any single route
+	# fh_10 PROBLEM #7: route repeats 25-29 across all seeds
+	for rk in _unique_routes:
+		if _unique_routes[rk] > _route_repeat_max:
+			_route_repeat_max = _unique_routes[rk]
+	_verify("route_repeat_max", _route_repeat_max < 15,
+		"max_repeat=%d routes_total=%d (target: <15 repeats of any single route)" % [
+			_route_repeat_max, _unique_routes.size()])
+
+	# PROBE: Longest action streak — consecutive identical actions
+	# fh_10 PROBLEM #6: 86 identical actions in a row
+	_verify("longest_action_streak", _action_streak_max < 30,
+		"streak=%d last_type=%s (target: <30 consecutive identical actions)" % [
+			_action_streak_max, _last_action_type])
+
+	# PROBE: Backtrack rate — % of travels to already-visited nodes
+	# fh_10 PROBLEM #9: 96.5% backtrack rate
+	var bt_pct := 0.0
+	if _total_travels > 0:
+		bt_pct = (float(_backtrack_count) / float(_total_travels)) * 100.0
+	_verify("backtrack_rate", bt_pct < 90.0,
+		"backtrack=%.1f%% (%d/%d travels) (target: <90%% revisit rate)" % [
+			bt_pct, _backtrack_count, _total_travels])
+
+	# PROBE: Loot rate — % of combats that yield cargo or credits
+	# fh_10 PROBLEM #11: 62% null loot rate
+	if _loot_combats_tracked >= 3:
+		var loot_pct := (float(_loot_combats_rewarded) / float(_loot_combats_tracked)) * 100.0
+		_verify("loot_rate", loot_pct > 50.0,
+			"rewarded=%d/%d (%.0f%%) (target: >50%% of combats yield loot)" % [
+				_loot_combats_rewarded, _loot_combats_tracked, loot_pct])
+	else:
+		_skip("loot_rate", "insufficient_combats=%d" % _loot_combats_tracked)
+
+	# PROBE: Combat one-shot — combats ending in 1 round (should be rare)
+	# fh_10 PROBLEM #8: combat one-shot flag raised
+	if _combat_count_for_rounds >= 3:
+		var oneshot_pct := (float(_combat_one_shot) / float(_combat_count_for_rounds)) * 100.0
+		_verify("combat_one_shot", oneshot_pct < 30.0,
+			"one_shot=%d/%d (%.0f%%) avg_rounds=%.1f (target: <30%% one-shot)" % [
+				_combat_one_shot, _combat_count_for_rounds, oneshot_pct,
+				float(_combat_total_rounds) / float(_combat_count_for_rounds)])
+	else:
+		_skip("combat_one_shot", "insufficient_combats=%d" % _combat_count_for_rounds)
+
+	# PROBE: Combat round count — average rounds per combat (target: >=3)
+	# fh_10 PROBLEM #8: single volley combats persist
+	if _combat_count_for_rounds >= 3:
+		var avg_rounds := float(_combat_total_rounds) / float(_combat_count_for_rounds)
+		_verify("combat_round_avg", avg_rounds >= 3.0,
+			"total_rounds=%d combats=%d avg=%.1f (target: >=3 rounds)" % [
+				_combat_total_rounds, _combat_count_for_rounds, avg_rounds])
+	else:
+		_skip("combat_round_avg", "insufficient_combats=%d" % _combat_count_for_rounds)
+
+	# PROBE: Exploration depth — unique systems visited
+	# fh_10 PROBLEM #15: only 4 nodes visited (target 6)
+	_verify("exploration_depth", _visited.size() >= 6,
+		"unique_systems=%d (target: >=6 systems visited)" % _visited.size())
+
+	# PROBE: Blank panel content — check dock menu has actual text (visual only)
+	# fh_10 PROBLEM #14: BLANK_PANEL on acts 30, 32, 33
+	if _is_visual:
+		var hero_menu = root.find_child("HeroTradeMenu", true, false)
+		var has_content := false
+		if hero_menu:
+			var labels := hero_menu.find_children("*", "Label", true)
+			for lbl in labels:
+				if lbl is Label and not lbl.text.is_empty():
+					has_content = true
+					break
+			if not has_content:
+				# Also check RichTextLabel
+				var rtls := hero_menu.find_children("*", "RichTextLabel", true)
+				for rtl in rtls:
+					if rtl.text.length() > 0:
+						has_content = true
+						break
+		_verify("panel_content", has_content,
+			"hero_menu=%s has_text=%s" % [str(hero_menu != null), str(has_content)])
+	else:
+		_skip("panel_content", "headless")
+
+	# PROBE (fh_14): FO content exhaustion — did FO stop speaking after initial burst?
+	# fh_14 found FO content exhausts at ~d300 in experience bot. Check if lines dry up.
+	if _fo_promoted and _decision >= 150:
+		var lines_first_50 := _fo_lines_at_50
+		var lines_50_to_150 := _fo_lines_at_150 - _fo_lines_at_50
+		var lines_after_150 := _fo_line_count - _fo_lines_at_150
+		# FO should still be speaking in later phases (at least 1 line per 50 decisions)
+		var content_alive := lines_50_to_150 > 0 or lines_after_150 > 0
+		_verify("fo_content_exhaustion", content_alive,
+			"lines_d0_50=%d lines_d50_150=%d lines_d150+=%d total=%d (content exhausts if late=0)" % [
+				lines_first_50, lines_50_to_150, lines_after_150, _fo_line_count])
+	elif not _fo_promoted:
+		_skip("fo_content_exhaustion", "fo_not_promoted")
+	else:
+		_skip("fo_content_exhaustion", "insufficient_decisions=%d" % _decision)
+
 	# PROBE: Warp visual (visual only — is there VFX during warp?)
 	if _is_visual:
 		var warp_vfx = root.find_child("WarpEffect", true, false)
@@ -1205,14 +1497,77 @@ func _do_metric_probes() -> void:
 	else:
 		_skip("warp_visual", "headless")
 
+	# PROBE: Untraded goods — check if any market node has goods with zero trade volume
+	# Known systemic: UNTRADED_GOODS — goods exist in catalogs but never move
+	if _bridge.has_method("GetNodeEconomySnapshotV0") and _all_nodes.size() > 0:
+		var untraded_count := 0
+		var total_goods := 0
+		var sampled_nodes := 0
+		for n in _all_nodes:
+			var nid := str(n.get("id", ""))
+			if nid.is_empty():
+				continue
+			var econ: Dictionary = _bridge.call("GetNodeEconomySnapshotV0", nid)
+			if not econ is Dictionary:
+				continue
+			var goods: Array = econ.get("goods", [])
+			for g in goods:
+				total_goods += 1
+				var buy_vol := int(g.get("buy_volume", 0))
+				var sell_vol := int(g.get("sell_volume", 0))
+				if buy_vol == 0 and sell_vol == 0:
+					untraded_count += 1
+			sampled_nodes += 1
+			if sampled_nodes >= 5:
+				break
+		var traded_pct := 0.0
+		if total_goods > 0:
+			traded_pct = (1.0 - float(untraded_count) / float(total_goods)) * 100.0
+		_verify("untraded_goods", traded_pct >= 50.0,
+			"traded=%.0f%% untraded=%d/%d across %d nodes (target: >=50%% goods have volume)" % [
+				traded_pct, untraded_count, total_goods, sampled_nodes])
+	else:
+		_skip("untraded_goods", "no_economy_snapshot_method_or_nodes")
+
+	# PROBE: Industry zero efficiency — check production nodes for non-zero efficiency
+	# Known systemic: INDUSTRY_ZERO_EFFICIENCY — production nodes idle
+	if _bridge.has_method("GetNodeIndustryStatusV0") and _all_nodes.size() > 0:
+		var zero_eff := 0
+		var total_industries := 0
+		var sampled := 0
+		for n in _all_nodes:
+			var nid := str(n.get("id", ""))
+			if nid.is_empty():
+				continue
+			var industries: Array = _bridge.call("GetNodeIndustryStatusV0", nid)
+			if not industries is Array:
+				continue
+			for ind in industries:
+				total_industries += 1
+				var eff := float(ind.get("efficiency", 0.0))
+				if eff <= 0.0:
+					zero_eff += 1
+			sampled += 1
+			if sampled >= 5:
+				break
+		if total_industries > 0:
+			var active_pct := (1.0 - float(zero_eff) / float(total_industries)) * 100.0
+			_verify("industry_zero_efficiency", active_pct >= 50.0,
+				"active=%.0f%% zero_eff=%d/%d across %d nodes (target: >=50%% industries active)" % [
+					active_pct, zero_eff, total_industries, sampled])
+		else:
+			_skip("industry_zero_efficiency", "no_industries_found")
+	else:
+		_skip("industry_zero_efficiency", "no_industry_method_or_nodes")
+
 
 # ===================== Summary =====================
 
 func _do_summary() -> void:
 	_a.log("VERIFY_SUMMARY|confirmed=%d unconfirmed=%d skipped=%d total=%d" % [
 		_confirmed, _unconfirmed, _skipped, _confirmed + _unconfirmed + _skipped])
-	_a.log("SESSION|decisions=%d trades=%d travels=%d kills=%d visited=%d" % [
-		_decision, _total_trades, _total_travels, _kills, _visited.size()])
+	_a.log("SESSION|decisions=%d trades=%d travels=%d kills=%d visited=%d fo_lines=%d fo_promoted=%s" % [
+		_decision, _total_trades, _total_travels, _kills, _visited.size(), _fo_line_count, str(_fo_promoted)])
 
 	# Write JSON report
 	var report := {
@@ -1228,7 +1583,19 @@ func _do_summary() -> void:
 			"travels": _total_travels,
 			"kills": _kills,
 			"visited": _visited.size(),
-			"fps_min": _fps_min
+			"fps_min": _fps_min,
+			"fo_promoted": _fo_promoted,
+			"fo_line_count": _fo_line_count,
+			"fo_silence_max_decisions": _fo_silence_max_decisions,
+			"fo_silence_max_ticks": _fo_silence_max,
+			"route_repeat_max": _route_repeat_max,
+			"action_streak_max": _action_streak_max,
+			"backtrack_pct": (float(_backtrack_count) / float(maxi(_total_travels, 1))) * 100.0,
+			"loot_combats_tracked": _loot_combats_tracked,
+			"loot_combats_rewarded": _loot_combats_rewarded,
+			"combat_total_rounds": _combat_total_rounds,
+			"combat_count": _combat_count_for_rounds,
+			"combat_one_shot_count": _combat_one_shot
 		}
 	}
 	var json_str := JSON.stringify(report, "  ")

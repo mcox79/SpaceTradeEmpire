@@ -1926,7 +1926,7 @@ func _bot_try_combat(loc: String) -> bool:
 				"Combat vs %s: hull %d->%d unchanged" % [hostile_id, pre_hull, defender_hull],
 				"ResolveCombatV0 ran but HP didn't change.")
 
-	if outcome == "attacker_won":
+	if outcome == "Victory":
 		_total_kills += 1
 	if attacker_hull <= 0:
 		_add_flag("PLAYER_DIED", "WARNING",

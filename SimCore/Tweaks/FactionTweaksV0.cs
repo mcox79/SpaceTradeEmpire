@@ -62,11 +62,11 @@ public static class FactionTweaksV0
     // GATE.T55.COMBAT.PIRATE_FACTION.001: Pirate aggro threshold — 999 means always hostile (even rep 0).
     public const int PirateAggroReputationThreshold = 999;
 
-    // GATE.T41.COMBAT.TUNING.001: Pirate fleet tuning — HP doubled so first-hour fights
-    // last 2-3 player volleys instead of one-shotting. Per dynamic_tension_v0.md:
-    // tension_min_hull must drop below 100% (pirate must survive long enough to hit player).
-    public const int PirateHullHp = 200;
-    public const int PirateShieldHp = 60;
+    // GATE.T41.COMBAT.TUNING.001 + GATE.T66.COMBAT.FIGHT_EXTEND.001: Pirate fleet tuning.
+    // GATE.T66: Raised hull 200→300, shield 60→100 so fights last 4-6 volleys and pirate
+    // survives long enough to deal hull damage (valence monotone fix — hull must drop <100%).
+    public const int PirateHullHp = 300;
+    public const int PirateShieldHp = 100;
     public const float PirateSpeed = 0.9f;
 
     // GATE.T55.COMBAT.PIRATE_FACTION.001: Pirate loot table — enhanced drops.

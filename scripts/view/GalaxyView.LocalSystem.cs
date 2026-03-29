@@ -160,7 +160,7 @@ public partial class GalaxyView
                 var ring = new MeshInstance3D
                 {
                     Name = "StarRing",
-                    Mesh = new TorusMesh { InnerRadius = starSize * 1.8f, OuterRadius = starSize * 2.5f, Rings = 16, RingSegments = 24 },
+                    Mesh = new TorusMesh { InnerRadius = starSize * 1.2f, OuterRadius = starSize * 1.6f, Rings = 16, RingSegments = 24 },
                     MaterialOverride = ringMat,
                     CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
                 };
@@ -639,8 +639,14 @@ public partial class GalaxyView
         // 3. Lane gate markers (one per neighbor).
         SpawnLaneGatesV0(snap);
 
+        // Scanner-gated visuals: boundary ring + discovery markers only appear
+        // once the player has scanning capability (tier > 0). Prevents visual noise
+        // during the early game before the player understands what these elements mean.
+        int scannerTier = _bridge?.GetScannerTierV0() ?? 0;
+
         // 4. Discovery site markers at seed-derived orbit positions.
-        SpawnDiscoverySitesV0(snap, nodeId);
+        if (scannerTier > 0)
+            SpawnDiscoverySitesV0(snap, nodeId);
 
         // GATE.S15.FEEL.NPC_PROXIMITY.001: Set local node ID before fleet spawn
         // (SpawnFleetsV0 uses _currentLocalNodeId for transit facts query).
@@ -654,6 +660,15 @@ public partial class GalaxyView
 
         // GATE.T44.AMBIENT: Economy-driven ambient visuals (shuttles, mining, prosperity, warfront).
         SpawnAmbientEconomyVisualsV0(nodeId);
+
+        // GATE.T66.SPATIAL.DARK_SYSTEM_FIX.001: System boundary ring + compass markers
+        // for player orientation — only visible once player has scanner (tier > 0).
+        if (scannerTier > 0)
+            SpawnSystemBoundaryRingV0(nodeId, starClass);
+
+        // GATE.T66.SPATIAL.SYSTEM_IDENTITY.001: Faction accent on local system atmosphere.
+        // Tints fog/dust with faction primary color for territorial "feel".
+        SpawnFactionSystemAccentV0(nodeId, starColor);
 
         // GATE.S15.FEEL.NPC_PROXIMITY.001: Enable periodic fleet refresh.
         // Short initial timer (0.1s) so first refresh fires quickly — catches fleets
@@ -735,6 +750,170 @@ public partial class GalaxyView
             else
                 _localSystemRoot.AddChild(beltDust);
         }
+    }
+
+    // GATE.T66.SPATIAL.DARK_SYSTEM_FIX.001: Faint boundary ring + compass cardinal markers.
+    // Reference: Elite Dangerous compass dot + Freelancer lane rings.
+    // Visible from flight altitude (~80u camera Y), gives the player a sense of system extent
+    // and orientation. Especially critical in ClassM (red dwarf) systems where ambient light is dim.
+    private void SpawnSystemBoundaryRingV0(string nodeId, string starClass)
+    {
+        float ringRadius = 100.0f; // STRUCTURAL: just inside SystemSceneRadiusU=120
+
+        // ── Boundary ring: faint emissive torus at system edge ──
+        // Boundary ring is a subtle orientation aid, not a focal element.
+        // Very low alpha so it hints at system extent without obstructing the view.
+        var ringColor = starClass switch
+        {
+            "ClassO" => new Color(0.3f, 0.4f, 0.8f, 0.08f),
+            "ClassA" => new Color(0.4f, 0.5f, 0.9f, 0.08f),
+            "ClassF" => new Color(0.6f, 0.6f, 0.7f, 0.08f),
+            "ClassG" => new Color(0.7f, 0.6f, 0.3f, 0.08f),
+            "ClassK" => new Color(0.8f, 0.5f, 0.2f, 0.08f),
+            "ClassM" => new Color(0.7f, 0.3f, 0.15f, 0.12f), // slightly brighter for dim systems
+            _ => new Color(0.5f, 0.5f, 0.5f, 0.08f),
+        };
+        ringColor = ApplySystemHueTintV0(ringColor, nodeId);
+
+        var ringMat = new StandardMaterial3D
+        {
+            AlbedoColor = ringColor,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            EmissionEnabled = true,
+            Emission = new Color(ringColor.R, ringColor.G, ringColor.B),
+            EmissionEnergyMultiplier = 0.15f,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+        };
+
+        var ringMesh = new MeshInstance3D
+        {
+            Name = "SystemBoundaryRing",
+            Mesh = new TorusMesh
+            {
+                InnerRadius = ringRadius - 0.15f,
+                OuterRadius = ringRadius + 0.15f,
+                Rings = 48,
+                RingSegments = 6,
+            },
+            MaterialOverride = ringMat,
+        };
+        ringMesh.RotateX(Mathf.Pi / 2.0f);
+        _localSystemRoot.AddChild(ringMesh);
+
+        // ── Compass cardinal markers: 4 faint emissive dots at N/S/E/W ──
+        var markerColor = new Color(ringColor.R, ringColor.G, ringColor.B, 0.2f);
+        var markerMat = new StandardMaterial3D
+        {
+            AlbedoColor = markerColor,
+            EmissionEnabled = true,
+            Emission = new Color(ringColor.R, ringColor.G, ringColor.B),
+            EmissionEnergyMultiplier = 0.3f,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+        };
+
+        var dirs = new (Vector3 pos, string label)[]
+        {
+            (new Vector3(0f, 0f, -ringRadius), "N"),
+            (new Vector3(0f, 0f, ringRadius), "S"),
+            (new Vector3(ringRadius, 0f, 0f), "E"),
+            (new Vector3(-ringRadius, 0f, 0f), "W"),
+        };
+
+        foreach (var (pos, label) in dirs)
+        {
+            var dot = new MeshInstance3D
+            {
+                Name = $"Compass_{label}",
+                Mesh = new SphereMesh { Radius = 0.5f, Height = 1.0f },
+                MaterialOverride = markerMat,
+                Position = pos,
+            };
+            _localSystemRoot.AddChild(dot);
+
+            // Label3D at each cardinal point for readability.
+            var lbl = new Label3D
+            {
+                Name = $"CompassLabel_{label}",
+                Text = label,
+                FontSize = 48,
+                Position = pos + new Vector3(0f, 3f, 0f),
+                Modulate = new Color(ringColor.R, ringColor.G, ringColor.B, 0.5f),
+                OutlineModulate = new Color(0f, 0f, 0f, 0.3f),
+                OutlineSize = 4,
+                Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+                FixedSize = true,
+                PixelSize = 0.015f,
+            };
+            _localSystemRoot.AddChild(lbl);
+        }
+    }
+
+    // GATE.T66.SPATIAL.SYSTEM_IDENTITY.001: Faction atmospheric accent.
+    // Tints the system fog emission and adds a subtle faction-colored nebula wisp ring
+    // so faction territories "feel" different even before docking. Supplements the
+    // existing station accent band and ship hull tint.
+    private void SpawnFactionSystemAccentV0(string nodeId, Color starColor)
+    {
+        if (_bridge == null || string.IsNullOrEmpty(nodeId)) return;
+
+        var terr = _bridge.GetTerritoryAccessV0(nodeId);
+        var factionId = terr.ContainsKey("faction_id") ? (string)terr["faction_id"] : "";
+        if (string.IsNullOrEmpty(factionId)) return;
+
+        var fColors = _bridge.GetFactionColorsV0(factionId);
+        if (!fColors.ContainsKey("primary")) return;
+
+        var factionColor = (Color)fColors["primary"];
+
+        // ── Faction nebula wisp ring: subtle colored ring near system mid-zone ──
+        // 20% faction blend with star color → keeps star-class mood but adds faction personality.
+        var wispColor = starColor.Lerp(factionColor, 0.20f);
+        float wispRadius = 60.0f; // STRUCTURAL: between planet zone and boundary ring
+
+        var wispMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(wispColor.R, wispColor.G, wispColor.B, 0.12f),
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            EmissionEnabled = true,
+            Emission = wispColor,
+            EmissionEnergyMultiplier = 0.4f,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+        };
+
+        var wispRing = new MeshInstance3D
+        {
+            Name = "FactionNebulaWisp",
+            Mesh = new TorusMesh
+            {
+                InnerRadius = wispRadius - 5.0f,
+                OuterRadius = wispRadius + 5.0f,
+                Rings = 32,
+                RingSegments = 8,
+            },
+            MaterialOverride = wispMat,
+        };
+        wispRing.RotateX(Mathf.Pi / 2.0f);
+        // Hash-based tilt so each system's wisp ring is at a slightly different angle.
+        var wispHash = Fnv1a64(nodeId + "_faction_wisp");
+        float tiltDeg = ((float)(wispHash % 30UL) - 15.0f); // ±15°
+        wispRing.RotateZ(tiltDeg * (Mathf.Pi / 180.0f));
+        _localSystemRoot.AddChild(wispRing);
+
+        // ── Faction point light: very faint colored fill light for atmosphere ──
+        var factionLight = new OmniLight3D
+        {
+            Name = "FactionFillLight",
+            LightColor = factionColor,
+            LightEnergy = 0.15f,
+            OmniRange = 80.0f,
+            OmniAttenuation = 1.5f,
+            ShadowEnabled = false,
+            Position = new Vector3(0f, 15f, 0f), // STRUCTURAL: slightly above ecliptic
+        };
+        _localSystemRoot.AddChild(factionLight);
     }
 
     private void ClearLocalSystemV0()
@@ -1073,6 +1252,90 @@ public partial class GalaxyView
                 float yaw = MathF.Atan2(gatePos.X, gatePos.Z);
                 marker.Rotation = new Vector3(0f, yaw, 0f);
             }
+
+            // GATE.T68.SPATIAL.LANE_3D.001: Local lane guide line from inner system to gate.
+            // Thin emissive cylinder visible during flight — player can see which direction
+            // to fly to reach each gate. Starts at 50u (outside asteroid belt) so it doesn't
+            // clutter the station/planet area. Subtle alpha + low emission for tasteful appearance.
+            if (gatePos != Vector3.Zero && gatePos.Length() > 55f) // STRUCTURAL: only if gate far enough
+            {
+                var laneDir = gatePos.Normalized();
+                float laneStartDist = 50.0f; // STRUCTURAL: outside belt zone (45u)
+                float laneEndDist = gatePos.Length() - 12.0f; // STRUCTURAL: stop before gate ring
+                var laneStart = laneDir * laneStartDist;
+                var laneEnd = laneDir * laneEndDist;
+
+                var laneGuideMat = new StandardMaterial3D
+                {
+                    AlbedoColor = new Color(0.3f, 0.5f, 0.8f, 0.15f),
+                    EmissionEnabled = true,
+                    Emission = new Color(0.3f, 0.5f, 0.8f),
+                    EmissionEnergyMultiplier = 2.0f,
+                    ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                    Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                };
+                var laneGuide = new MeshInstance3D
+                {
+                    Name = "LaneGuide_" + neighborId,
+                    Mesh = new CylinderMesh { TopRadius = 0.8f, BottomRadius = 0.8f, Height = 1.0f },
+                    MaterialOverride = laneGuideMat,
+                    CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                };
+                UpdateEdgeTransformV0(laneGuide, laneStart, laneEnd);
+                laneGuide.AddToGroup("LaneGuide"); // GATE.T68.SPATIAL.LANE_3D.001
+                _localSystemRoot.AddChild(laneGuide);
+
+                // Directional glow chevrons — 3 small emissive markers spaced along the lane
+                // pointing toward the gate. Gives directional sense (Freelancer-style lane arrows).
+                SpawnLaneChevronMarkersV0(laneStart, laneEnd, laneDir, neighborId);
+            }
+        }
+    }
+
+    // GATE.T68.SPATIAL.LANE_3D.001: Directional chevron markers along a lane guide line.
+    // Three small diamond-shaped meshes spaced at 25%, 50%, 75% along the lane, oriented
+    // toward the gate. Emissive cyan to match gate palette. Gives the player directional
+    // sense of which way to fly.
+    private void SpawnLaneChevronMarkersV0(Vector3 laneStart, Vector3 laneEnd, Vector3 laneDir, string neighborId)
+    {
+        var chevronMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.4f, 0.65f, 1.0f, 0.5f),
+            EmissionEnabled = true,
+            Emission = new Color(0.4f, 0.7f, 1.0f),
+            EmissionEnergyMultiplier = 5.0f,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+        };
+
+        // Place chevrons at 30%, 55%, 80% along the lane (asymmetric for visual interest).
+        float[] offsets = { 0.30f, 0.55f, 0.80f };
+        for (int c = 0; c < offsets.Length; c++)
+        {
+            var pos = laneStart.Lerp(laneEnd, offsets[c]);
+            // Arrowhead shape: elongated prism pointing along lane direction.
+            var chevron = new MeshInstance3D
+            {
+                Name = "LaneChevron_" + neighborId + "_" + c,
+                Mesh = new PrismMesh
+                {
+                    Size = new Vector3(3.0f, 4.0f, 1.5f), // Wide triangle, elongated along travel
+                },
+                MaterialOverride = chevronMat,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                Position = pos,
+            };
+            // Orient prism: point along lane direction. PrismMesh peak faces +Y by default.
+            // We want the peak to face along laneDir. Build basis: Y = laneDir.
+            Vector3 up = laneDir;
+            Vector3 fwd = Vector3.Forward;
+            if (Mathf.Abs(up.Dot(fwd)) > 0.99f) fwd = Vector3.Right;
+            Vector3 right = fwd.Cross(up).Normalized();
+            fwd = up.Cross(right).Normalized();
+            chevron.Basis = new Basis(right, up, fwd);
+
+            chevron.AddToGroup("LaneChevron"); // GATE.T68.SPATIAL.LANE_3D.001
+            _localSystemRoot.AddChild(chevron);
         }
     }
 
@@ -1081,7 +1344,9 @@ public partial class GalaxyView
         if (!snap.ContainsKey("discovery_sites")) return;
         var sites = snap["discovery_sites"].AsGodotArray();
 
-        for (int i = 0; i < sites.Count; i++)
+        // Cap at 3 markers per system to avoid visual clutter (matches galaxy map cap).
+        int maxSites = Math.Min(sites.Count, 3);
+        for (int i = 0; i < maxSites; i++)
         {
             var s = sites[i].AsGodotDictionary();
             var siteId = s.ContainsKey("site_id") ? (string)s["site_id"] : (nodeId + "_site_" + i);

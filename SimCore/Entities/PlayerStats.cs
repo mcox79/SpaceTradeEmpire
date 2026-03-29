@@ -22,6 +22,11 @@ public class PlayerStats
     // GATE.T64.COMBAT.PITY_JACKPOT.001: Consecutive common loot drops (pity timer).
     [JsonInclude] public int ConsecutiveCommonLootCount { get; set; }
 
+    // GATE.T67.PACING.STREAK_BREAKER.001: Monotone action streak tracking.
+    // Tracks consecutive same-type player actions to detect monotone play.
+    [JsonInclude] public string LastActionType { get; set; } = "";
+    [JsonInclude] public int ConsecutiveActionStreak { get; set; }
+
     // GATE.S12.PROGRESSION.MILESTONES.001: Achieved milestone IDs.
     [JsonInclude] public List<string> AchievedMilestoneIds { get; set; } = new();
 }

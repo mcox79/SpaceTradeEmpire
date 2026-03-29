@@ -71,7 +71,10 @@ public partial class SimBridge
     }
 
     /// <summary>
-    /// Returns the most recent combat log: {outcome (string), cause (string), event_count (int)}.
+    /// Returns the most recent combat log with round-by-round event data.
+    /// Returns: {outcome (string), cause (string), event_count (int),
+    ///          rounds (Array of {tick, attacker_id, defender_id, damage, defender_hull, defender_shield}),
+    ///          attacker_alive (bool), defender_alive (bool)}.
     /// Returns empty dict if no combat has occurred.
     /// </summary>
     public Godot.Collections.Dictionary GetLastCombatLogV0()
@@ -84,6 +87,25 @@ public partial class SimBridge
             result["outcome"] = last.Outcome.ToString();
             result["cause"] = last.CauseOfDeath ?? "";
             result["event_count"] = last.Events.Count;
+
+            // Round-by-round event data for combat feel analysis
+            var rounds = new Godot.Collections.Array();
+            foreach (var evt in last.Events)
+            {
+                rounds.Add(new Godot.Collections.Dictionary
+                {
+                    ["tick"] = evt.Tick,
+                    ["attacker_id"] = evt.AttackerId ?? "",
+                    ["defender_id"] = evt.DefenderId ?? "",
+                    ["damage_dealt"] = evt.DamageDealt,
+                    ["defender_hull"] = evt.DefenderHullRemaining,
+                    ["defender_shield"] = evt.DefenderShieldRemaining,
+                });
+            }
+            result["rounds"] = rounds;
+            result["attacker_alive"] = last.Outcome != CombatSystem.CombatOutcome.Loss;
+            result["defender_alive"] = last.Outcome == CombatSystem.CombatOutcome.InProgress
+                                    || last.Outcome == CombatSystem.CombatOutcome.Loss;
         }, 0);
         return result;
     }

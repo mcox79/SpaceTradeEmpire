@@ -670,6 +670,14 @@ func _do_combat_depth() -> void:
 		_phase = Phase.WAIT_SYSTEMIC
 		return
 
+	# === Combat status snapshot ===
+	if _bridge.has_method("GetCombatStatusV0"):
+		var cs: Dictionary = _bridge.call("GetCombatStatusV0")
+		_a.log("COMBAT|combat_status=%s" % str(cs))
+		_a.warn(cs.has("in_combat"), "combat_status_has_in_combat", "keys=%d" % cs.size())
+		_a.warn(cs.has("enemy_fleet_id"), "combat_status_has_enemy", "")
+		_a.goal("COMBAT", "combat_status_schema_valid=true")
+
 	# === Heat system ===
 	if _bridge.has_method("GetHeatSnapshotV0"):
 		var heat_before: Dictionary = _bridge.call("GetHeatSnapshotV0")
@@ -1351,6 +1359,22 @@ func _do_save_load_test() -> void:
 			"before=%d after=%d drift=%.1f%%" % [credits_before, credits_after, drift * 100])
 		_a.hard(node_after == node_before, "save_node_stable",
 			"before=%s after=%s" % [node_before, node_after])
+
+		# === Save slot metadata ===
+		if _bridge.has_method("GetSaveSlotMetadataV0"):
+			var meta: Dictionary = _bridge.call("GetSaveSlotMetadataV0", 0)
+			_a.log("SAVE|slot_metadata=%s" % str(meta))
+			_a.warn(meta.has("exists"), "save_meta_has_exists", "keys=%d" % meta.size())
+			_a.warn(meta.has("timestamp"), "save_meta_has_timestamp", "")
+			_a.goal("SAVE", "slot_metadata_schema_valid=true exists=%s" % str(meta.get("exists", "?")))
+
+		# === Save integrity check ===
+		if _bridge.has_method("GetSaveIntegrityV0"):
+			var integrity: Dictionary = _bridge.call("GetSaveIntegrityV0", 0)
+			_a.log("SAVE|integrity=%s" % str(integrity))
+			_a.warn(integrity.has("valid"), "save_integrity_has_valid", "keys=%d" % integrity.size())
+			_a.goal("SAVE", "integrity_checked=true valid=%s" % str(integrity.get("valid", "?")))
+
 		_busy = false
 	else:
 		_a.warn(false, "save_method_exists", "AutoSaveV0 missing")
@@ -1601,6 +1625,34 @@ func _do_endgame_check() -> void:
 		_bridge.call("ForceSetGameResultV0", 0)
 		var restored: Dictionary = _bridge.call("GetGameResultV0")
 		_a.hard(int(restored.get("result", -1)) == 0, "force_restore_in_progress", "result=%d" % int(restored.get("result", -1)))
+
+	# === Player death/respawn cycle ===
+	if _bridge.has_method("DebugSetPlayerHullV0") and _bridge.has_method("GetRespawnStateV0"):
+		# Kill the player
+		_bridge.call("DebugSetPlayerHullV0", 0)
+		_a.log("DEATH|hull_set_to_0")
+		# Tick to process death
+		_bridge.call("TickV0")
+		_bridge.call("TickV0")
+
+		var respawn: Dictionary = _bridge.call("GetRespawnStateV0")
+		_a.log("DEATH|respawn_state=%s" % str(respawn))
+		_a.warn(respawn.has("is_dead"), "respawn_has_is_dead", "keys=%d" % respawn.size())
+		_a.warn(respawn.has("respawn_node_id"), "respawn_has_node", "")
+		_a.goal("DEATH", "respawn_state_queried=true is_dead=%s" % str(respawn.get("is_dead", "?")))
+
+		# Clear respawn and restore
+		if _bridge.has_method("ClearRespawnV0"):
+			_bridge.call("ClearRespawnV0")
+			_a.log("DEATH|respawn_cleared")
+		# Restore hull so later phases aren't affected
+		if _bridge.has_method("DebugRestorePlayerHullV0"):
+			_bridge.call("DebugRestorePlayerHullV0")
+			_a.log("DEATH|hull_restored")
+
+		# Restore game result to InProgress in case death set it
+		if _bridge.has_method("ForceSetGameResultV0"):
+			_bridge.call("ForceSetGameResultV0", 0)
 
 	_polls = 0
 	_phase = Phase.STORY_CHECK

@@ -24,6 +24,9 @@ public static class FleetUpkeepSystem
         if (FleetUpkeepTweaksV0.UpkeepCycleTicks <= 0) return; // STRUCTURAL: disabled guard
         if (state.Tick % FleetUpkeepTweaksV0.UpkeepCycleTicks != 0) return; // STRUCTURAL: cycle check
 
+        // fh_14: Safety net — waive passive upkeep when credits critically low.
+        if (state.PlayerCredits < FleetUpkeepTweaksV0.LowFundsThreshold) return;
+
         var scratch = s_scratch.GetOrCreateValue(state);
         var sortedFleetIds = scratch.SortedFleetIds;
         sortedFleetIds.Clear();
@@ -158,7 +161,8 @@ public static class FleetUpkeepSystem
             }
 
             // Crew wages: docked ships pay 50%.
-            if (wageCycle)
+            // fh_14: Safety net — waive wages when credits critically low.
+            if (wageCycle && state.PlayerCredits >= FleetUpkeepTweaksV0.LowFundsThreshold)
             {
                 int baseWage = GetWagePerCycle(fleet.ShipClassId);
                 if (baseWage > 0)
@@ -184,13 +188,21 @@ public static class FleetUpkeepSystem
 
         // GATE.T64.ECON.FRICTION_SINKS.001: Per-hop lane transit fee on arrival.
         // Flat credit cost each time the player completes a lane transit.
-        if (FleetUpkeepTweaksV0.LaneTransitFeeCr > 0 && state.ArrivalsThisTick.Count > 0)
+        // fh_14: Safety net — waive transit/docking fees when credits critically low.
+        if (FleetUpkeepTweaksV0.LaneTransitFeeCr > 0 && state.ArrivalsThisTick.Count > 0
+            && state.PlayerCredits >= FleetUpkeepTweaksV0.LowFundsThreshold)
         {
             foreach (var (fleetId, edgeId, nodeId) in state.ArrivalsThisTick)
             {
                 if (!state.Fleets.TryGetValue(fleetId, out var arrFleet)) continue;
                 if (!string.Equals(arrFleet.OwnerId, "player", StringComparison.Ordinal)) continue;
                 state.PlayerCredits -= FleetUpkeepTweaksV0.LaneTransitFeeCr;
+
+                // GATE.T67.ECON.SINK_UPKEEP.001: Docking fee on arrival at a station node.
+                if (FleetUpkeepTweaksV0.DockingFeeCr > 0 && state.Markets.ContainsKey(nodeId))
+                {
+                    state.PlayerCredits -= FleetUpkeepTweaksV0.DockingFeeCr;
+                }
             }
         }
     }

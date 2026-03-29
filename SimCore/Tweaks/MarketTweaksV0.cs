@@ -48,25 +48,79 @@ public static class MarketTweaksV0
     // Higher-value goods respond more strongly, discouraging single-good dominance.
     public const int ScarcityBpsPerUnit = 200;
 
-    // GATE.T52.ECON.TRADE_DIVERSITY.001 + GATE.T63.ECON.ROUTE_DECAY.001: Recent-trade margin dampening.
-    // When player trades the same good at the same node repeatedly, price
-    // adjusts to reduce margin (supply/demand response to player activity).
-    // RecentTradeDecayTicks: how quickly the dampening fades (ticks).
-    // GATE.T63: Reduced from 600→400 ticks so penalty decays faster when rotating routes,
-    // but hits harder per-trade (1200 bps) to discourage same-route grinding.
-    // fh_5 grind score 4.0+ on 3/5 seeds → needed stronger anti-grind.
-    public const int RecentTradeDecayTicks = 400;
-    // RecentTradeDampenBps: margin reduction per recent trade (basis points).
-    // GATE.T63: Raised from 800→1200 bps/trade. After 3 trades: 3600 bps = 36% margin reduction.
-    // With 400-tick decay = decay rate 3 bps/tick → faster recovery when rotating.
-    public const int RecentTradeDampenBps = 1200;
-    // GATE.T65.ECON.ROUTE_NOVELTY.001: Bonus for trading new routes.
-    // First trade on a new market+good pair gets NoveltyBonusBps margin bonus.
-    // Decays linearly over NoveltyDecayTrades trades (e.g., full bonus on trade 1, 2/3 on trade 2, 1/3 on trade 3).
-    public const int NoveltyBonusBps = 3000; // 30% bonus on first trade
-    public const int NoveltyDecayTrades = 3; // Bonus fades over 3 trades
+    // GATE.T52.ECON.TRADE_DIVERSITY.001 + GATE.T63.ECON.ROUTE_DECAY.001 + GATE.T66.ECON.GRIND_REDUCTION.001:
+    // Recent-trade margin dampening. When player trades the same good at the same node
+    // repeatedly, price adjusts to reduce margin (supply/demand response to player activity).
+    // GATE.T68.ECON.ROUTE_DAMPEN_V2.001: Raised from 4000→6000 bps/trade.
+    // fh_12: diversity=0.21 (target>0.3), route_repeat_max=20. More aggressive per-trade penalty.
+    // After 2 trades: 12000 bps = effectively zero margin. Forces route rotation.
+    public const int RecentTradeDampenBps = 6000;
+    // fh_14: Reduced from 80→50 ticks. With 10x experienced decay multiplier,
+    // experienced traders recover routes in ~5 ticks (near-instant after one trade elsewhere).
+    // This rewards exploration: visit new route → old routes already recovering.
+    public const int RecentTradeDecayTicks = 50;
+    // GATE.T68.ECON.ROUTE_DAMPEN_V2.001: Reduced from 3→2. Penalty kicks in after just 2 repeats.
+    // fh_12: grind_score=14.0 — must be much more aggressive to break route locking.
+    public const int ExponentialPenaltyThreshold = 2;
+    // fh_14: Raised from 1000→2000 bps/repeat^2. VFY route_repeat_max=20-30 (target <15).
+    // At 3 repeats: (3-2)^2 * 2000 = 2000 extra bps. At 5: (5-2)^2 * 2000 = 18000 extra bps.
+    // Much harsher penalty makes 4+ repeats economically unviable, forcing route switching.
+    public const int ExponentialPenaltyBpsPerSq = 2000;
+    // GATE.T68: Raised from 5000→7000 bps. Even stronger pull toward new routes.
+    // NMS pattern: push notifications for new trade opportunities drive exploration.
+    public const int NoveltyBonusBps = 7000; // 70% bonus on first trade at new route
+    // GATE.T68: Reduced from 3→2. Concentrated bonus on first 2 trades rewards route switching.
+    public const int NoveltyDecayTrades = 2; // Bonus fades over 2 trades
 
-    // GATE.T65.ECON.DAMPEN_CAP.001: cap lowered from 95% to 50%. 9500 caused late margins
-    // to go negative (-37 avg). 5000 keeps late trades profitable but still penalizes grinding.
-    public const int RecentTradeMaxDampenBps = 5000;
+    // GATE.T68.ECON.ROUTE_DAMPEN_V2.001: Raised from 4000→6000 bps first-visit bonus.
+    // Starsector pattern: route health indicator + discovery bonus for new stations.
+    // NMS pattern: FO announces profitable opportunities at new stations.
+    public const int FirstVisitBonusBps = 6000; // 60% bonus on first trade at newly discovered station
+    public const int FirstVisitBonusTrades = 3; // Bonus applies to first 3 trades at new station
+
+    // GATE.T65.ECON.DAMPEN_CAP.001 + GATE.T66.ECON.GRIND_REDUCTION.001:
+    // Cap raised from 5000→6000 bps (60%). With margin floor (GATE.T66), margins stay positive
+    // but grinding becomes clearly suboptimal vs exploring new routes.
+    public const int RecentTradeMaxDampenBps = 6000;
+
+    // GATE.T68.ECON.MARGIN_CURVE_V2.001: Lower threshold from 8→6 nodes. Kicks in sooner.
+    // fh_12: -64% margin decline. Experienced trader benefits must activate earlier.
+    // Inverted-U curve: margins peak mid-game (new routes + novelty), then stabilize (not decline).
+    public const int ExperiencedTraderNodeThreshold = 6;
+    // fh_14: Raised from 5→10. With 200-decision VFY run, competence margin collapsed -97%.
+    // At 5x, dampening accumulated faster than decay even for experienced traders.
+    // 10x makes routes recover in ~8 ticks — experienced traders should always have viable routes.
+    public const int ExperiencedDampenDecayMultiplier = 10; // 10x faster decay after threshold
+
+    // fh_14: Raised from 5000→7000 bps. VFY competence margin -97% at 200 decisions.
+    // 70% extra price variance for experienced traders creates meaningful late-game opportunities.
+    // Factorio pattern: 4x tier multiplier — bigger factory = bigger opportunities.
+    public const int LateGameVarianceBonusBps = 7000; // 70% extra price variance for experienced traders
+
+    // GATE.T68.ECON.MARGIN_CURVE_V2.001: Raised from 3000→5000 bps.
+    // After visiting 6+ nodes, high-tier goods sell at 50% premium at non-producing stations.
+    // Factorio 4x tier multiplier: late-game goods = late-game margins.
+    public const int LateGoodsPremiumBps = 5000; // 50% premium on late-game goods
+    public static readonly string[] LateGameGoodIds =
+    {
+        Content.WellKnownGoodIds.Electronics,
+        Content.WellKnownGoodIds.Components,
+        Content.WellKnownGoodIds.ExoticCrystals,
+        Content.WellKnownGoodIds.SalvagedTech,
+    };
+
+    // GATE.T66.ECON.MARGIN_FLOOR.001: Minimum trade margin guarantee.
+    // fh_8: margin decline -52% (late margins went negative). This floor ensures trades
+    // are always at least minimally profitable, preventing frustration while still
+    // penalizing route grinding through reduced margins.
+    // Tiered goods pattern (Elite/X4/EVE): margins constant per tier, not zero.
+    public const int MinSellMarginBps = 500; // 5% minimum margin floor on sell price
+    // Session-local warmup: first 3 trades at a station get a "fresh stock premium."
+    // Factorio pattern: early interactions are more rewarding to build confidence.
+    public const int FreshStockPremiumBps = 1500; // 15% bonus on first 3 trades per station
+    public const int FreshStockPremiumTrades = 3; // Premium applies to first N trades
+
+    // GATE.T67.ECON.ROUTE_DECAY.001: Absolute dampening cap (95% = 9500 bps).
+    // Always leaves 5% margin floor to prevent fully zero-margin trades.
+    public const int AbsoluteDampenCapBps = 9500;
 }

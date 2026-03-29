@@ -98,6 +98,21 @@ public partial class GalaxyView
             root.AddChild(gateLabel);
         }
 
+        // GATE.T68.SPATIAL.LANE_3D.001: Point light beacon — makes gate glow visible from 130u+.
+        // Cyan-white light matches the torus emissive palette. Range 40u ensures visibility
+        // at full flight camera distance (~80u altitude) without bleeding into other systems.
+        var gateLight = new OmniLight3D
+        {
+            Name = "GateBeaconLight",
+            LightColor = new Color(0.4f, 0.65f, 1.0f),
+            LightEnergy = 3.0f,
+            OmniRange = 40.0f,
+            OmniAttenuation = 1.5f,
+            Position = new Vector3(0f, 0f, 0f), // STRUCTURAL: centered on gate
+            ShadowEnabled = false,
+        };
+        root.AddChild(gateLight);
+
         // Approach zone: player RigidBody3D entering triggers GATE_APPROACH state + popup.
         // Exiting the zone cancels approach if still pending.
         var area = new Area3D

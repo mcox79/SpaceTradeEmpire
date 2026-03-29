@@ -490,8 +490,8 @@ func _on_upgrade_pressed() -> void:
 	if bridge.has_method("UpgradeHavenV0"):
 		bridge.call("UpgradeHavenV0")
 		var toast_mgr = get_node_or_null("/root/ToastManager")
-		if toast_mgr and toast_mgr.has_method("show_toast"):
-			toast_mgr.call("show_toast", "Haven upgrade initiated", 2.0)
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+			toast_mgr.call("show_priority_toast", "Haven upgrade initiated", "system", 2.0)
 		refresh(_market_node_id)
 
 
@@ -517,8 +517,8 @@ func _on_swap_pressed(stored_fleet_id: String) -> void:
 		var ok: bool = bridge.call("SwapShipV0", active_fleet_id, stored_fleet_id)
 		if ok:
 			var toast_mgr = get_node_or_null("/root/ToastManager")
-			if toast_mgr and toast_mgr.has_method("show_toast"):
-				toast_mgr.call("show_toast", "Ship swapped!", 2.0)
+			if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+				toast_mgr.call("show_priority_toast", "Ship swapped!", "system", 2.0)
 		refresh(_market_node_id)
 
 
@@ -651,8 +651,8 @@ func _on_deposit_fragment(fragment_id: String) -> void:
 	var result: Dictionary = bridge.call("DepositFragmentV0", fragment_id)
 	if bool(result.get("success", false)):
 		var toast_mgr = get_node_or_null("/root/ToastManager")
-		if toast_mgr and toast_mgr.has_method("show_toast"):
-			toast_mgr.call("show_toast", "Fragment deposited!", 2.0)
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+			toast_mgr.call("show_priority_toast", "Fragment deposited!", "system", 2.0)
 	refresh(_market_node_id)
 
 
@@ -931,8 +931,8 @@ func _on_activate_resonance(pair_id: String) -> void:
 		return
 	bridge.call("ActivateResonancePairV0", pair_id)
 	var toast_mgr = get_node_or_null("/root/ToastManager")
-	if toast_mgr and toast_mgr.has_method("show_toast"):
-		toast_mgr.call("show_toast", "Resonance pair activated!", 2.0)
+	if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+		toast_mgr.call("show_priority_toast", "Resonance pair activated!", "system", 2.0)
 	refresh(_market_node_id)
 
 
@@ -1046,8 +1046,8 @@ func _on_choose_path(path_id: String) -> void:
 	var ok: bool = bridge.call("ChooseEndgamePathV0", path_id)
 	if ok:
 		var toast_mgr = get_node_or_null("/root/ToastManager")
-		if toast_mgr and toast_mgr.has_method("show_toast"):
-			toast_mgr.call("show_toast", "Endgame path chosen: %s" % path_id, 3.0)
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+			toast_mgr.call("show_priority_toast", "Endgame path chosen: %s" % path_id, "milestone", 3.0)
 	refresh(_market_node_id)
 
 
@@ -1175,6 +1175,6 @@ func _on_restore_hull(ship_class_id: String) -> void:
 	var result: Dictionary = bridge.call("RestoreAncientHullV0", ship_class_id)
 	if bool(result.get("success", false)):
 		var toast_mgr = get_node_or_null("/root/ToastManager")
-		if toast_mgr and toast_mgr.has_method("show_toast"):
-			toast_mgr.call("show_toast", "Hull restoration complete!", 2.0)
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+			toast_mgr.call("show_priority_toast", "Hull restoration complete!", "system", 2.0)
 	refresh(_market_node_id)

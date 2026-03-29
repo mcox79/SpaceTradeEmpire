@@ -737,7 +737,9 @@ public sealed class StrategicResolverTests
 
 		var result = StrategicResolverV0.Resolve(profileA, profileB);
 
-		Assert.That(result.RoundsPlayed, Is.EqualTo(CombatTweaksV0.StrategicMaxRounds),
+		// GATE.T67.COMBAT.SHIELD_GRACE.001: Effective max = min(StrategicMaxRounds, MaxCombatRounds).
+		int effectiveMax = Math.Min(CombatTweaksV0.StrategicMaxRounds, CombatDepthTweaksV0.MaxCombatRounds);
+		Assert.That(result.RoundsPlayed, Is.EqualTo(effectiveMax),
 			"Should play exactly the max number of rounds");
 		Assert.That(result.Winner, Is.EqualTo(StrategicResolverV0.Winner.Draw),
 			"Neither fleet destroyed → Draw");
@@ -858,7 +860,7 @@ public sealed class StrategicResolverTests
 		// NOTE: Update this value if the resolver algorithm is intentionally changed.
 		// To find the current hash, run the test with goldenLocked=false and read the output.
 		// GATE.S5.COMBAT.REPLAY_PROOF.001: Golden hash locked.
-		const string GoldenHash = "2101326fc1295c8ab45a0c72fb2dd0fedf553b5c01bd85fef3fb52027a4fb167"; // GATE.S7.COMBAT_DEPTH2: tracking+variance+armorPen+foreKill
+		const string GoldenHash = "4cab1fa4a1ca58551c18fa87a51beb36bdac45e058135a4e2d504cf4caa7772a"; // GATE.T67: shield grace + hull cap + attrition
 		Assert.That(hash1, Is.EqualTo(GoldenHash), "Frame hash must match golden value");
 	}
 }
@@ -1007,7 +1009,8 @@ public sealed class CombatResolutionTests
 		var result = CombatSystem.ResolveCombatV0(attacker, defender);
 
 		// With very high HP, likely hits max rounds → Draw → Flee
-		Assert.That(result.RoundsPlayed, Is.EqualTo(CombatTweaksV0.StrategicMaxRounds));
+		int effectiveMax = Math.Min(CombatTweaksV0.StrategicMaxRounds, CombatDepthTweaksV0.MaxCombatRounds);
+		Assert.That(result.RoundsPlayed, Is.EqualTo(effectiveMax));
 		Assert.That(result.Outcome, Is.EqualTo(CombatSystem.CombatResolutionOutcome.Flee));
 	}
 

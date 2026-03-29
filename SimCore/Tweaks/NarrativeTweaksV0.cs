@@ -62,15 +62,39 @@ public static class NarrativeTweaksV0
     // COSTS_MOUNTING trigger: minimum nodes visited before FO comments on operating costs.
     public const int CostsMountingNodesVisited = 3;
 
-    // GATE.T41.FO.SILENCE_FALLBACK.001: Decision-count silence cap.
-    // Per fo_trade_manager_v0.md: silence is currency, but bounded — max 50 decisions silent.
-    // fh_4 audit found 176-decision silence gap. Reduced from 120→50 ticks (~4 min real time).
-    public const int SilenceFallbackThresholdTicks = 50;
+    // GATE.T41.FO.SILENCE_FALLBACK.001 + GATE.T66.FO.SILENCE_FILL.001: Decision-count silence cap.
+    // GATE.T66: Reduced from 50→30 ticks. fh_8: max_silence=261 despite T60+T64 content.
+    // Hades pattern: FO bucket always has at least one eligible item (recycling tokens).
+    // fh_14: Reduced 30→15 ticks. Headless bots showed 135-282 decision silence gaps.
+    // With 15 ticks and cadence 5, FO checks 3x per threshold window.
+    public const int SilenceFallbackThresholdTicks = 15;
     // Maximum number of silence break triggers (cycling SILENCE_BREAK_1..N).
-    // Raised from 8→24 to prevent FO going permanently silent in longer sessions.
-    public const int SilenceBreakMaxCount = 24;
-    // Cadence for checking silence fallback (every N ticks). Reduced from 30→10 for faster response.
-    public const int SilenceFallbackCheckCadence = 10;
+    // GATE.T68.FO.AMBIENT_EXPAND.001: Expanded from 10→20 to use full content library.
+    public const int SilenceBreakMaxCount = 20;
+    // Cadence for checking silence fallback (every N ticks).
+    // fh_14: Reduced 10→5 for more responsive silence detection.
+    public const int SilenceFallbackCheckCadence = 5;
+
+    // fh_14: Reduced from 15→10. VFY bot streak=10, experience bot streak=86.
+    // 10 consecutive same actions is enough for FO to comment on the pattern.
+    // Hades injects at ~10-15 repetitions; 10 feels more responsive.
+    public const int MonotoneStreakThreshold = 10;
+    // GATE.T68.FO.AMBIENT_EXPAND.001: Expanded from 6→10 for more variety.
+    public const int MonotoneStreakMaxCount = 10;
+
+    // fh_14: Reduced from 20→15. With FO commentary at 10, market perturbation at 15
+    // provides a two-stage escalation: first FO warns, then market shifts if player persists.
+    public const int EventInterruptStreakThreshold = 15;
+    // Price shift magnitude in bps applied to the good being traded monotonously.
+    // 4000 bps = 40% price shift — enough to make the route clearly suboptimal.
+    public const int EventInterruptPriceShiftBps = 4000;
+
+    // GATE.T67.FO.SILENCE_DECISIONS.001: Decision-based silence fallback.
+    // After N player decisions with no FO line, fire an ambient observation.
+    // Research: Valve Response System uses 15-20s hard floor; adapted for decision count.
+    // fh_14: Reduced 25→15. Now that more commands increment the counter
+    // (undock, combat, equip, scan), 15 decisions is ~3-4 trade cycles — appropriate pace.
+    public const int SilenceDecisionThreshold = 15;
 
     // GATE.T64.FO.COMBAT_REACTION.001: Delayed FO reaction after combat win.
     // Fires 10 ticks after kill, cycling through COMBAT_REACTION_1..N.
@@ -84,14 +108,18 @@ public static class NarrativeTweaksV0
     // silence min from 80→25, increased obs count from 8→20.
     public const int HeartbeatCadenceTicks = 40;
     public const int HeartbeatSilenceMinTicks = 25;
-    public const int AmbientObsMaxCount = 20;
+    // GATE.T68.FO.AMBIENT_EXPAND.001: Expanded from 12→24 for deeper content coverage.
+    public const int AmbientObsMaxCount = 24;
 
     // GATE.T64.FO.AMBIENT_TRIGGERS.001: Condition-based ambient triggers (Hades grid pattern).
     // These fire on specific gameplay conditions, cycling through 3 variants per type.
-    // Cadence: check every AmbientCondCheckTicks, min AmbientCondSilenceMinTicks since last line.
-    public const int AmbientCondCheckTicks = 50;
-    public const int AmbientCondSilenceMinTicks = 30;
-    public const int AmbientCondMaxPerType = 3;
+    // GATE.T66.PACING.DEAD_ZONE_INJECT.001: Reduced cadence from 50→25 ticks.
+    // Subnautica pattern: force micro-events when >15 decisions since last signal.
+    // fh_8: 3 dead zones (d480-720), 240-decision plateaus. Need faster injection.
+    public const int AmbientCondCheckTicks = 25;
+    public const int AmbientCondSilenceMinTicks = 15;
+    // GATE.T66: Raised per-type limit from 3→6 for longer sessions.
+    public const int AmbientCondMaxPerType = 6;
     // MARKET_OPPORTUNITY: minimum margin (cr) at nearby node to trigger.
     public const int MarketOpportunityMinMargin = 50;
     // REWARD_MILESTONE: credit thresholds.

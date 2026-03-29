@@ -3,6 +3,7 @@ using SimCore;
 using SimCore.Commands;
 using SimCore.Entities;
 using SimCore.Systems;
+using SimCore.Tweaks;
 
 namespace SimCore.Tests.Commands;
 
@@ -24,6 +25,9 @@ public sealed class TradeCommandContractTests
 		market.Inventory[Fuel] = InitialStock;
 		state.Markets[MarketId] = market;
 
+		// Neutralize novelty bonus so price tests are stable.
+		state.PlayerRouteNovelty[$"{MarketId}|{Fuel}"] = Tweaks.MarketTweaksV0.NoveltyDecayTrades;
+
 		return state;
 	}
 
@@ -39,9 +43,13 @@ public sealed class TradeCommandContractTests
 		new BuyCommand(MarketId, Fuel, qty).Execute(state);
 
 		// GATE.X.MARKET_PRICING.FEE_WIRE.001: totalCost includes 1% transaction fee.
+		// GATE.T68.ECON.PERCENTAGE_SINKS.001: totalCost includes trade tax.
 		int grossCost = pricePer * qty;
 		int fee = MarketSystem.ComputeTransactionFeeCredits(state, grossCost);
-		Assert.That(state.PlayerCredits, Is.EqualTo(InitialCredits - grossCost - fee));
+		int costWithFee = grossCost + fee;
+		int buyTax = FleetUpkeepTweaksV0.TradeTaxBps > 0
+			? (int)System.Math.Max(1, (long)costWithFee * FleetUpkeepTweaksV0.TradeTaxBps / 10000) : 0;
+		Assert.That(state.PlayerCredits, Is.EqualTo(InitialCredits - costWithFee - buyTax));
 		Assert.That(InventoryLedger.Get(state.PlayerCargo, Fuel), Is.EqualTo(qty));
 		Assert.That(InventoryLedger.Get(state.Markets[MarketId].Inventory, Fuel), Is.EqualTo(InitialStock - qty));
 	}
@@ -119,9 +127,13 @@ public sealed class TradeCommandContractTests
 		new SellCommand(MarketId, Fuel, qty).Execute(state);
 
 		// GATE.X.MARKET_PRICING.FEE_WIRE.001: totalValue has 1% fee deducted.
+		// GATE.T68.ECON.PERCENTAGE_SINKS.001: totalValue has trade tax deducted.
 		int grossValue = pricePer * qty;
 		int fee = MarketSystem.ComputeTransactionFeeCredits(state, grossValue);
-		Assert.That(state.PlayerCredits, Is.EqualTo(InitialCredits + grossValue - fee));
+		int valueAfterFee = grossValue - fee;
+		int sellTax = FleetUpkeepTweaksV0.TradeTaxBps > 0 && valueAfterFee > 0
+			? (int)System.Math.Max(1, (long)valueAfterFee * FleetUpkeepTweaksV0.TradeTaxBps / 10000) : 0;
+		Assert.That(state.PlayerCredits, Is.EqualTo(InitialCredits + valueAfterFee - sellTax));
 		Assert.That(InventoryLedger.Get(state.PlayerCargo, Fuel), Is.EqualTo(5));
 		Assert.That(InventoryLedger.Get(state.Markets[MarketId].Inventory, Fuel), Is.EqualTo(InitialStock + qty));
 	}
@@ -172,10 +184,13 @@ public sealed class TradeCommandContractTests
 
 		new TradeCommand("player", MarketId, Fuel, qty, TradeType.Buy).Execute(state);
 
-		// TradeCommand delegates to BuyCommand which includes transaction fee.
+		// TradeCommand delegates to BuyCommand which includes transaction fee + trade tax.
 		int grossCost = pricePer * qty;
 		int fee = MarketSystem.ComputeTransactionFeeCredits(state, grossCost);
-		Assert.That(state.PlayerCredits, Is.EqualTo(InitialCredits - grossCost - fee));
+		int costWithFee = grossCost + fee;
+		int buyTax = FleetUpkeepTweaksV0.TradeTaxBps > 0
+			? (int)System.Math.Max(1, (long)costWithFee * FleetUpkeepTweaksV0.TradeTaxBps / 10000) : 0;
+		Assert.That(state.PlayerCredits, Is.EqualTo(InitialCredits - costWithFee - buyTax));
 		Assert.That(InventoryLedger.Get(state.PlayerCargo, Fuel), Is.EqualTo(qty));
 		Assert.That(InventoryLedger.Get(state.Markets[MarketId].Inventory, Fuel), Is.EqualTo(InitialStock - qty));
 	}
@@ -190,10 +205,13 @@ public sealed class TradeCommandContractTests
 
 		new TradeCommand("player", MarketId, Fuel, qty, TradeType.Sell).Execute(state);
 
-		// TradeCommand delegates to SellCommand which includes transaction fee.
+		// TradeCommand delegates to SellCommand which includes transaction fee + trade tax.
 		int grossValue = pricePer * qty;
 		int fee = MarketSystem.ComputeTransactionFeeCredits(state, grossValue);
-		Assert.That(state.PlayerCredits, Is.EqualTo(InitialCredits + grossValue - fee));
+		int valueAfterFee = grossValue - fee;
+		int sellTax = FleetUpkeepTweaksV0.TradeTaxBps > 0 && valueAfterFee > 0
+			? (int)System.Math.Max(1, (long)valueAfterFee * FleetUpkeepTweaksV0.TradeTaxBps / 10000) : 0;
+		Assert.That(state.PlayerCredits, Is.EqualTo(InitialCredits + valueAfterFee - sellTax));
 		Assert.That(InventoryLedger.Get(state.PlayerCargo, Fuel), Is.EqualTo(6));
 		Assert.That(InventoryLedger.Get(state.Markets[MarketId].Inventory, Fuel), Is.EqualTo(InitialStock + qty));
 	}

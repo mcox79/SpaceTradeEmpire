@@ -72,6 +72,15 @@ var binary_exclusion_zone: float = 0.0
 ## Obstacle avoidance — Y-lift over planets, XZ steering around stations/ships.
 var _target_y: float = 0.0  # Managed altitude (0 = flight plane, >0 = lifting over planet).
 
+## GATE.T67.PERF.FPS_OPTIMIZE.001: Cached group queries — shared across all NPC ships.
+## Refreshed every 12 physics frames (~5Hz at 60fps) instead of per-ship per-frame.
+static var _cached_stations: Array = []
+static var _cached_npc_ships: Array = []
+static var _cached_planets: Array = []
+static var _cached_player: Array = []
+static var _group_cache_frame: int = -1
+const GROUP_CACHE_INTERVAL: int = 12
+
 ## Patrol seed (used for deterministic initial position).
 var _patrol_seed: int = 0
 
@@ -388,6 +397,9 @@ func _check_reputation_aggro(current_node: String) -> bool:
 
 
 func _physics_process(delta: float) -> void:
+	# GATE.T67.PERF.FPS_OPTIMIZE.001: Refresh shared group cache (first NPC each frame pays cost).
+	_refresh_group_cache()
+
 	# Warp-out in progress — freeze all movement, let tween handle scale-down + queue_free.
 	if _warp_out_started:
 		_velocity = Vector3.ZERO
@@ -532,10 +544,24 @@ func _physics_process(delta: float) -> void:
 	_apply_managed_y(delta)
 
 
+## GATE.T67.PERF.FPS_OPTIMIZE.001: Refresh cached group arrays (static, shared by all NPCs).
+func _refresh_group_cache() -> void:
+	var frame: int = Engine.get_physics_frames()
+	if frame != _group_cache_frame:
+		_group_cache_frame = frame
+		if frame % GROUP_CACHE_INTERVAL == 0:
+			_cached_stations = get_tree().get_nodes_in_group("Station")
+			_cached_npc_ships = get_tree().get_nodes_in_group("NpcShip")
+			_cached_planets = get_tree().get_nodes_in_group("PlanetBody")
+			_cached_player = get_tree().get_nodes_in_group("Player")
+
+
 ## Managed Y: lift over planets, return to flight plane when clear.
 func _apply_managed_y(delta: float) -> void:
 	_target_y = 0.0
-	for planet in get_tree().get_nodes_in_group("PlanetBody"):
+	for planet in _cached_planets:
+		if not is_instance_valid(planet):
+			continue
 		var p_node: Node3D = planet as Node3D
 		if p_node == null:
 			continue
@@ -555,7 +581,9 @@ func _apply_managed_y(delta: float) -> void:
 func _compute_xz_avoidance() -> Vector3:
 	var avoidance := Vector3.ZERO
 	# Stations.
-	for station in get_tree().get_nodes_in_group("Station"):
+	for station in _cached_stations:
+		if not is_instance_valid(station):
+			continue
 		var s_node: Node3D = station as Node3D
 		if s_node == null:
 			continue
@@ -566,7 +594,9 @@ func _compute_xz_avoidance() -> Vector3:
 			var t: float = 1.0 - dist / avoid_r
 			avoidance -= to_station.normalized() * t * t * 0.6
 	# Other NPC ships.
-	for ship in get_tree().get_nodes_in_group("NpcShip"):
+	for ship in _cached_npc_ships:
+		if not is_instance_valid(ship):
+			continue
 		if ship == self:
 			continue
 		var sh_node: Node3D = ship as Node3D
@@ -578,7 +608,9 @@ func _compute_xz_avoidance() -> Vector3:
 			var t: float = 1.0 - dist / 10.0
 			avoidance -= to_ship.normalized() * t * t * 0.4
 	# Player ship.
-	for player in get_tree().get_nodes_in_group("Player"):
+	for player in _cached_player:
+		if not is_instance_valid(player):
+			continue
 		# Skip player avoidance during ENGAGE state (combat approach is intentional).
 		if _fleet_state == "Engaging" or _fleet_state == "Attacking":
 			continue
@@ -728,6 +760,10 @@ func on_hit(damage: int) -> void:
 			var HitstopVfx := load("res://scripts/vfx/hitstop.gd")
 			if HitstopVfx and HitstopVfx.has_method("on_kill") and get_tree():
 				HitstopVfx.call("on_kill", get_tree())
+			# GATE.T68.VFX.COMBAT_FEEDBACK.001: Show kill banner on NPC destroy.
+			var hud_node := get_node_or_null("/root/Main/HUD")
+			if hud_node and hud_node.has_method("show_kill_banner_v0"):
+				hud_node.call("show_kill_banner_v0")
 			_spawn_explosion_vfx()
 			queue_free()
 

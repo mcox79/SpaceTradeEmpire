@@ -32,7 +32,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
 
     # ── Config ──
-    $defaultTimeout = @{ 'headless' = 120; 'visual' = 180 }
+    # fh_14: Increased to match 200-decision aggregate play (MAX_FRAMES=9000)
+    $defaultTimeout = @{ 'headless' = 180; 'visual' = 240 }
     $activeTimeout = if ($TimeoutSec -gt 0) { $TimeoutSec } else { $defaultTimeout[$Mode] }
 
     $script = 'res://scripts/tests/test_verify_issues_v0.gd'

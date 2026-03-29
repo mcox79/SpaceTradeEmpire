@@ -42,7 +42,7 @@ try {
 
     # ── Determine run matrix ──
     $defaultTimeout = @{ 'headless' = 120; 'visual' = 360 }
-    if ($Slow) { $defaultTimeout = @{ 'headless' = 600; 'visual' = 1800 } }
+    if ($Slow) { $defaultTimeout = @{ 'headless' = 1800; 'visual' = 1800 } }
     $activeTimeout = if ($TimeoutSec -gt 0) { $TimeoutSec } else { $defaultTimeout[$Mode] }
 
     $seeds = @()

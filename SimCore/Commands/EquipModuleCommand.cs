@@ -22,5 +22,7 @@ public sealed class EquipModuleCommand : ICommand
         var slot = fleet.Slots.FirstOrDefault(s => s.SlotId == SlotId);
         if (slot == null) return;
         slot.InstalledModuleId = ModuleId.Length > 0 ? ModuleId : null;
+        // fh_14: Track player decisions for FO silence fallback.
+        if (state.FirstOfficer != null) state.FirstOfficer.DecisionsSinceLastLine++;
     }
 }

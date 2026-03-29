@@ -236,6 +236,15 @@ var _shield_break_rounds: Array = []  # round number when enemy shield broke
 var _combat_round_counts: Array = []  # total rounds per combat
 var _combat_dmg_variance: Array = []  # damage variance per combat
 
+# ---- Tracking: sell rejections (market instability awareness) ----
+var _sell_rejections_instability := 0 # sells skipped due to market closure
+var _sell_rejections_log: Array = []  # [{decision, node, good}]
+
+# ---- Tracking: automation effectiveness aggregation ----
+var _automation_total_earned := 0     # total credits earned by all programs
+var _automation_total_expense := 0    # total expense across all programs
+var _automation_total_cycles := 0     # total cycles run across all programs
+
 # ---- Tracking: credit history (NEW — uses GetCreditHistoryV0) ----
 var _credit_history_available := false  # bridge method exists
 var _credit_velocity_from_bridge: Array = []  # velocity samples from bridge
@@ -244,6 +253,21 @@ var _credit_velocity_from_bridge: Array = []  # velocity samples from bridge
 var _fo_adaptation_events := 0        # FO adaptation events observed
 var _fo_dialogue_token_ids: Dictionary = {}  # token_id -> count for repetition detection
 var _fo_dialogue_repeats := 0         # same token within 100 decisions
+var _fo_last_new_token_decision := 0  # decision when last NEW unique token appeared
+var _fo_content_exhausted_at := -1    # decision where no new token in 100+ decisions
+
+# ---- Tracking: economy growth rate windows (convergence analysis gap) ----
+var _growth_rate_windows: Array = []  # [{window, start_credits, end_credits, rate}] per 50-decision window
+var _economy_acceleration := 0.0      # second derivative: are growth rates increasing or decreasing?
+var _economy_growth_trend := "UNKNOWN" # ACCELERATING, DECELERATING, STEADY, VOLATILE
+
+# ---- Tracking: route diversity timeline (convergence analysis gap) ----
+var _route_diversity_windows: Array = []  # [{window, unique_routes, total_trades, diversity}] per 100d
+var _diversity_collapse_decision := -1    # decision where diversity first drops below 0.3
+
+# ---- Tracking: streak detail (convergence analysis gap) ----
+var _longest_streak_type := ""        # action type of the longest streak (e.g., "TRAVEL")
+var _longest_streak_start := 0        # decision where the longest streak started
 
 # ---- Tracking: visual (visual mode only) ----
 var _capture_points: Dictionary = {}  # milestone -> true (avoid duplicates)
@@ -773,18 +797,12 @@ func _probe_live_systems() -> void:
 	# -- FO adaptation log (bridge-powered, gap #10) --
 	_probe_fo_adaptation()
 
-	# -- FO dialogue repetition detection (gap #10 supplement) --
-	if _bridge.has_method("GetFirstOfficerDialogueV0"):
-		var fo_dlg = _bridge.call("GetFirstOfficerDialogueV0")
-		if fo_dlg is Array:
-			for dlg in fo_dlg:
-				if dlg is Dictionary:
-					var token_id: String = str(dlg.get("token_id", ""))
-					if not token_id.is_empty():
-						var prev_count: int = _fo_dialogue_token_ids.get(token_id, 0)
-						_fo_dialogue_token_ids[token_id] = prev_count + 1
-						if prev_count > 0:
-							_fo_dialogue_repeats += 1
+	# -- FO content exhaustion detection (token tracking done in _track_fo) --
+	if _fo_content_exhausted_at < 0 and _fo_last_new_token_decision > 0:
+		if _decision - _fo_last_new_token_decision > 100 and _fo_dialogue_token_ids.size() > 3:
+			_fo_content_exhausted_at = _decision
+			_a.log("FO|d=%d CONTENT_EXHAUSTED unique_tokens=%d last_new_at=%d" % [
+				_decision, _fo_dialogue_token_ids.size(), _fo_last_new_token_decision])
 
 	# -- Automation engagement timing (gap #23) --
 	if not _event_decisions.has("first_automation") and _automation_created:
@@ -843,25 +861,30 @@ func _track_fo() -> void:
 		# Valence: FO dialogue = medium positive
 		_record_valence_event("fo_dialogue", _decision)
 		# Capture FO dialogue text for LLM quality analysis
-		if _bridge.has_method("GetFirstOfficerDialogueV0"):
-			var dlg_arr = _bridge.call("GetFirstOfficerDialogueV0")
-			if dlg_arr is Array and dlg_arr.size() > 0:
-				var latest = dlg_arr[-1]
-				if latest is Dictionary:
-					var text: String = str(latest.get("text", ""))
-					var speaker: String = str(latest.get("speaker", "FO"))
-					if not text.is_empty():
-						_fo_dialogue_log.append({
-							"decision": _decision,
-							"text": text,
-							"speaker": speaker,
-						})
-						# Track word count for cognitive load analysis
-						var word_count := text.split(" ").size()
-						_fo_word_counts.append(word_count)
-						# Truncate text for log line (max 80 chars)
-						var short_text: String = text.substr(0, 80) + ("..." if text.length() > 80 else "")
-						_a.log("FO_LINE|d=%d|speaker=%s|text=%s" % [_decision, speaker, short_text])
+		# Use pending_text from GetFirstOfficerStateV0 (non-consuming read) to avoid
+		# mutating sim state — consuming dialogue shifts FO trigger timing and causes
+		# run-to-run variance on the same seed.
+		var text := str(fo.get("pending_text", ""))
+		if not text.is_empty():
+			_fo_dialogue_log.append({
+				"decision": _decision,
+				"text": text,
+				"speaker": "FO",
+			})
+			# Track word count for cognitive load analysis
+			var word_count := text.split(" ").size()
+			_fo_word_counts.append(word_count)
+			# Track unique text for content exhaustion detection
+			var token_id: String = str(text.hash())
+			if not _fo_dialogue_token_ids.has(token_id):
+				_fo_dialogue_token_ids[token_id] = 1
+				_fo_last_new_token_decision = _decision
+			else:
+				_fo_dialogue_token_ids[token_id] = int(_fo_dialogue_token_ids[token_id]) + 1
+				_fo_dialogue_repeats += 1
+			# Truncate text for log line (max 80 chars)
+			var short_text: String = text.substr(0, 80) + ("..." if text.length() > 80 else "")
+			_a.log("FO_LINE|d=%d|speaker=FO|text=%s" % [_decision, short_text])
 
 
 func _track_credit_velocity() -> void:
@@ -1109,6 +1132,11 @@ func _score_trade_routes(loc: String, credits: int, candidates: Array, pa: Dicti
 		var nid := str(n.get("node_id", ""))
 		if nid.is_empty():
 			continue
+		# Skip markets closed by instability
+		if _bridge.has_method("GetInstabilityEffectsV0"):
+			var inst = _bridge.call("GetInstabilityEffectsV0", nid)
+			if inst is Dictionary and bool(inst.get("market_closed", false)):
+				continue
 		var mv: Array = _bridge.call("GetPlayerMarketViewV0", nid)
 		for entry in mv:
 			var gid := str(entry.get("good_id", ""))
@@ -1175,6 +1203,12 @@ func _score_sell_options(loc: String, cargo: Array, candidates: Array, pa: Dicti
 			var nid := str(n.get("node_id", ""))
 			if nid.is_empty():
 				continue
+			# Skip markets closed by instability — avoids hammering closed markets
+			if _bridge.has_method("GetInstabilityEffectsV0"):
+				var inst = _bridge.call("GetInstabilityEffectsV0", nid)
+				if inst is Dictionary and bool(inst.get("market_closed", false)):
+					_sell_rejections_instability += 1
+					continue
 			var mv: Array = _bridge.call("GetPlayerMarketViewV0", nid)
 			for entry in mv:
 				if str(entry.get("good_id", "")) != gid:
@@ -1500,6 +1534,15 @@ func _bot_try_combat(loc: String) -> bool:
 	var salvage := int(result.get("salvage", 0))
 	var hull_pct := (attacker_hull * 100) / maxi(hull_max, 1)
 	_combat_hull_mins.append(hull_pct)
+	# Sample hull timeline immediately after combat — the 50-decision cadence
+	# misses combat damage because SustainSystem auto-repairs between samples.
+	_hull_timeline.append({"decision": _decision, "hull_pct": hull_pct})
+	if hull_pct < 90:
+		_hull_never_threatened = false
+	if hull_pct < 50:
+		_hull_below_50_count += 1
+	if hull_pct < 20:
+		_hull_below_20_count += 1
 	_record_action(_decision, "COMBAT", loc, hostile_id, 0,
 		"%s hull=%d%% salvage=%d" % [outcome, hull_pct, salvage])
 	_a.log("COMBAT|d=%d target=%s outcome=%s hull=%d%% salvage=%d" % [
@@ -1526,8 +1569,19 @@ func _bot_try_combat(loc: String) -> bool:
 		_late_kill_rate = float(_total_kills) / maxf(float(_total_combats), 1.0)
 	else:
 		_record_valence_event("hull_damage", _decision)
-	# Track combat round details via GetLastCombatLogV0
+	# Track combat round details via GetLastCombatLogV0 (now returns full event array)
 	_probe_combat_round_log()
+	# Capture heat immediately after combat — heat resets outside combat
+	if _bridge.has_method("GetHeatSnapshotV0"):
+		var hs = _bridge.call("GetHeatSnapshotV0")
+		if hs is Dictionary:
+			var h: float = float(hs.get("current_heat", hs.get("heat_current", 0.0)))
+			if h > _heat_max:
+				_heat_max = h
+	# Also capture rounds from ResolveCombatV0 result as backup
+	var resolve_rounds := int(result.get("rounds", 0))
+	if resolve_rounds > 0 and _combat_round_counts.size() == 0:
+		_combat_round_counts.append(resolve_rounds)
 	# FO reactivity: combat is a significant event
 	_set_fo_react_event("combat")
 	# Prevent player death in visual mode (game over screen blocks all UI)
@@ -1547,7 +1601,7 @@ func _bot_do_buy(loc: String, good_id: String, qty: int, credits_before: int) ->
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
 	var credits_after := int(ps.get("credits", 0))
 	var succeeded := credits_after < credits_before
-	_record_action(_decision, "BUY", loc, good_id, qty, "credits %d->%d" % [credits_before, credits_after])
+	_record_action(_decision, "BUY", loc, good_id, qty, "credits %d->%d" % [credits_before, credits_after], credits_after - credits_before)
 	if succeeded:
 		_total_buys += 1
 		_trades_since_explore += 1
@@ -1574,11 +1628,12 @@ func _bot_do_sell(loc: String, good_id: String, qty: int) -> void:
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
 	var credits_after := int(ps.get("credits", 0))
 	var succeeded := credits_after > credits_before
-	_record_action(_decision, "SELL", loc, good_id, qty, "credits %d->%d" % [credits_before, credits_after])
+	var sell_profit := credits_after - credits_before
+	_record_action(_decision, "SELL", loc, good_id, qty, "credits %d->%d" % [credits_before, credits_after], sell_profit)
 	if succeeded:
 		_total_sells += 1
 		_trades_since_explore += 1
-		var profit := credits_after - credits_before
+		var profit := sell_profit
 		_total_earned += profit
 		_goods_sold[good_id] = true
 		_consecutive_idles = 0
@@ -2112,6 +2167,10 @@ func _bot_monitor_programs() -> void:
 					unprofitable_count += 1
 				_a.log("PROGRAM_PERF|d=%d id=%s kind=%s earned=%d expense=%d net=%d cycles=%d failures=%d" % [
 					_decision, pid, kind, earned, expense, net, cycles, failures])
+	# Accumulate session-wide totals for final summary
+	_automation_total_earned = total_earned
+	_automation_total_expense = total_expense
+	_automation_total_cycles += active_count  # approximate cycle count from monitoring samples
 	_a.log("PROGRAMS|d=%d monitoring: active=%d failed=%d total_earned=%d total_expense=%d unprofitable=%d" % [
 		_decision, active_count, failed_count, total_earned, total_expense, unprofitable_count])
 	if unprofitable_count > 0:
@@ -2759,7 +2818,8 @@ func _score_engagement(phase: String, s: Dictionary) -> int:
 			if int(s.get("systems_introduced", 0)) > int(_checkpoints[0].get("systems_introduced", 0)) if _checkpoints.size() > 0 else int(s.get("systems_introduced", 0)) > 1: score += 1
 			if int(s.get("goods_traded", 0)) > 2: score += 1
 		"60min":
-			if float(s.get("grind_score", 0.0)) < 0.3: score += 1
+			# GATE.T66.BOT.EXPERIENCE_CALIBRATE.001: Tightened from 0.3.
+			if float(s.get("grind_score", 0.0)) < 0.20: score += 1
 			# Still discovering new things (compare to 30min checkpoint)
 			var prev_nodes := 0
 			for cp in _checkpoints:
@@ -2866,7 +2926,8 @@ func _check_checkpoint_issues(phase: String, s: Dictionary) -> Array:
 				issues.append({"severity": "MAJOR", "issue": "Credits declining after 30 minutes — player can't find profitable routes"})
 			if int(s.get("goods_traded", 0)) < 2:
 				issues.append({"severity": "MAJOR", "issue": "Only 1 good traded after 30 min — market diversity not apparent"})
-			if float(s.get("grind_score", 0.0)) > 0.3:
+			# GATE.T66.BOT.EXPERIENCE_CALIBRATE.001: Tightened from 0.3 (T66 economy changes).
+			if float(s.get("grind_score", 0.0)) > 0.20:
 				issues.append({"severity": "MAJOR", "issue": "Grind pattern detected at 30 min — player stuck in repetitive loop"})
 			if int(s.get("systems_introduced", 0)) < 2:
 				issues.append({"severity": "MAJOR", "issue": "Fewer than 2 systems introduced — progressive disclosure too slow"})
@@ -2875,7 +2936,8 @@ func _check_checkpoint_issues(phase: String, s: Dictionary) -> Array:
 		"60min":
 			if float(s.get("visit_pct", 0.0)) < 25.0:
 				issues.append({"severity": "MAJOR", "issue": "Less than 25%% of galaxy explored — world feels small or player is stuck"})
-			if float(s.get("grind_score", 0.0)) > 0.4:
+			# GATE.T66.BOT.EXPERIENCE_CALIBRATE.001: Tightened from 0.4 (T66 economy changes).
+			if float(s.get("grind_score", 0.0)) > 0.30:
 				issues.append({"severity": "MAJOR", "issue": "Grind pattern persists at 60 min — no variety in gameplay"})
 			if not bool(s.get("haven_discovered", false)) and not bool(s.get("automation_created", false)):
 				issues.append({"severity": "MINOR", "issue": "No deep systems (haven/automation) reached — depth promise unfulfilled"})
@@ -2969,8 +3031,8 @@ func _track_price(good_id: String, price: int) -> void:
 		_price_history[good_id] = []
 	_price_history[good_id].append(price)
 
-func _record_action(cycle: int, type: String, node: String, good: String, qty: int, detail: String) -> void:
-	_actions.append({"cycle": cycle, "type": type, "node": node, "good": good, "qty": qty, "detail": detail})
+func _record_action(cycle: int, type: String, node: String, good: String, qty: int, detail: String, profit: int = 0) -> void:
+	_actions.append({"decision": cycle, "type": type, "node": node, "good": good, "qty": qty, "detail": detail, "profit": profit})
 
 func _record_reward(name: String) -> void:
 	_reward_events.append(_decision)
@@ -3275,6 +3337,17 @@ func _do_report() -> void:
 	var total_sinks := _total_spent + implicit_sinks
 	var sink_faucet := float(total_sinks) / maxi(_total_earned, 1)
 	_a.log("ECONOMY|sink_faucet_ratio=%.2f (explicit=%d implicit=%d)" % [sink_faucet, _total_spent, implicit_sinks])
+	# Growth rate windows — per-window economy acceleration analysis
+	_compute_growth_rate_windows()
+	_a.log("ECONOMY|growth_trend=%s acceleration=%.3f windows=%d" % [
+		_economy_growth_trend, _economy_acceleration, _growth_rate_windows.size()])
+	if _growth_rate_windows.size() > 0:
+		var rate_str := ""
+		for w in _growth_rate_windows:
+			if not rate_str.is_empty():
+				rate_str += ","
+			rate_str += "%.3f" % float(w.get("rate", 0))
+		_a.log("ECONOMY|growth_rates=[%s]" % rate_str)
 
 	# ---- Dimension 2: Pacing ----
 	# Credit curve shape
@@ -3298,22 +3371,37 @@ func _do_report() -> void:
 	# Activity variety (Shannon entropy)
 	var entropy := _compute_action_entropy()
 	_a.log("PACING|action_entropy=%.2f" % entropy)
-	# Longest monotonous streak
+	# Longest monotonous streak (with detail)
 	var longest_streak := _compute_longest_streak()
-	_a.log("PACING|longest_streak=%d" % longest_streak)
+	_compute_longest_streak_detail()
+	_a.log("PACING|longest_streak=%d type=%s start_d=%d" % [
+		longest_streak, _longest_streak_type, _longest_streak_start])
 	# FO silence
 	var fo_max_silence := _compute_fo_max_silence()
 	_a.log("PACING|fo_lines=%d fo_max_silence=%d" % [_fo_dialogue_count, fo_max_silence])
+	# FO content exhaustion
+	_a.log("FO|unique_tokens=%d repeats=%d last_new_at=%d exhausted_at=%d" % [
+		_fo_dialogue_token_ids.size(), _fo_dialogue_repeats,
+		_fo_last_new_token_decision, _fo_content_exhausted_at])
 
 	# ---- Dimension 3: Grind Detection ----
 	var grind_score := _compute_grind_score()
-	_a.log("GRIND|score=%.2f longest_streak=%d" % [grind_score, longest_streak])
+	_a.log("GRIND|score=%.2f longest_streak=%d streak_type=%s" % [grind_score, longest_streak, _longest_streak_type])
 	var route_repeats := _compute_route_repeats()
 	_a.log("GRIND|max_route_repeat=%d" % route_repeats)
 	var good_repeats := _compute_good_repeats()
 	_a.log("GRIND|max_good_repeat=%d" % good_repeats)
 	var route_concentration := _compute_route_concentration()
 	_a.log("GRIND|route_concentration=%.2f" % route_concentration)
+	# Route diversity timeline
+	_compute_route_diversity_timeline()
+	if _route_diversity_windows.size() > 0:
+		var div_str := ""
+		for w in _route_diversity_windows:
+			if not div_str.is_empty():
+				div_str += ","
+			div_str += "%.2f" % float(w.get("diversity", 0))
+		_a.log("GRIND|diversity_timeline=[%s] collapse_at=%d" % [div_str, _diversity_collapse_decision])
 
 	# ---- Dimension 4: Flow/Engagement ----
 	# Novelty rate
@@ -3394,8 +3482,10 @@ func _do_report() -> void:
 	_a.warn(_visited.size() >= 3, "exploration_minimum", "visited=%d" % _visited.size())
 	_a.warn(_factions_visited.size() >= 2, "faction_diversity", "factions=%d" % _factions_visited.size())
 	_a.warn(idle_pct < 10.0, "idle_rate_acceptable", "%.1f%%" % idle_pct)
-	_a.warn(longest_streak < 20, "no_grinding", "streak=%d" % longest_streak)
-	_a.warn(grind_score < 0.15, "grind_score_low", "%.2f" % grind_score)
+	# GATE.T66.BOT.EXPERIENCE_CALIBRATE.001: Tightened from 20/0.15 — T66 economy changes
+	# (stronger dampening, novelty bonus, first-visit bonus) make grinding suboptimal faster.
+	_a.warn(longest_streak < 15, "no_grinding", "streak=%d" % longest_streak)
+	_a.warn(grind_score < 0.10, "grind_score_low", "%.2f" % grind_score)
 	_a.warn(max_gap < 80, "no_reward_desert", "max_gap=%d" % max_gap)
 	_a.warn(_threat_bands_seen.size() >= 2, "security_gradient", "bands=%d" % _threat_bands_seen.size())
 	_a.warn(_profit_per_trade.size() > 0, "trades_completed", "trades=%d" % _profit_per_trade.size())
@@ -3513,9 +3603,10 @@ func _do_report() -> void:
 		if str(act.get("type", "")) == "TRAVEL":
 			var detail: String = str(act.get("detail", ""))
 			var reason := "unknown"
-			if "exploration" in detail: reason = "exploration"
+			if "explore" in detail: reason = "exploration"
 			elif "sell" in detail: reason = "trade_sell"
-			elif "buy" in detail or "profit" in detail: reason = "trade_buy"
+			elif "buy_route" in detail or "buy" in detail or "profit" in detail: reason = "trade_buy"
+			elif "combat" in detail or "seeking" in detail: reason = "combat_seek"
 			elif "untouched" in detail: reason = "diversity"
 			elif "roam" in detail: reason = "roam"
 			visit_reasons[reason] = visit_reasons.get(reason, 0) + 1
@@ -3569,7 +3660,7 @@ func _do_report() -> void:
 		"PASS" if visit_pct >= 50.0 and _factions_visited.size() >= 2 else ("FAIL" if visit_pct < 20.0 else "WARN"),
 		visit_pct, _factions_visited.size(), max_depth])
 	_a.log("  GRIND        %s  score=%.2f route_repeat=%d" % [
-		"PASS" if grind_score < 0.15 and route_repeats <= 20 else ("FAIL" if grind_score > 0.3 else "WARN"),
+		"PASS" if grind_score < 0.10 and route_repeats <= 15 else ("FAIL" if grind_score > 0.25 else "WARN"),
 		grind_score, route_repeats])
 	_a.log("  FO           %s  promoted=%s lines=%d silence=%d" % [
 		"PASS" if _fo_promoted and fo_max_silence < 40 else ("FAIL" if not _fo_promoted or fo_max_silence > 60 else "WARN"),
@@ -3708,8 +3799,8 @@ func _do_report() -> void:
 	_a.log("SCORE|DISCLOSURE|systems=%d" % _systems_introduced.size())
 	_a.log("SCORE|PROGRESSION|milestones=%d endgame_paths=%d avg_profit_trade=%d" % [
 		_milestones_unlocked, _endgame_paths_revealed, avg_ppt])
-	_a.log("SCORE|MARKET_INTEL|alerts=%d shocks=%d spreads=%d" % [
-		_market_alerts_seen, _supply_shocks_seen, _price_spreads.size()])
+	_a.log("SCORE|MARKET_INTEL|alerts=%d shocks=%d spreads=%d instability_skips=%d" % [
+		_market_alerts_seen, _supply_shocks_seen, _price_spreads.size(), _sell_rejections_instability])
 	_a.log("SCORE|MISSIONS|available=%d accepted=%d bounties=%d first_d=%d" % [
 		_missions_available, _missions_accepted, _bounties_available, _mission_first_seen])
 	_a.log("SCORE|FLEET|modules=%d/%d weapons=%d techs=%d/%d" % [
@@ -3731,7 +3822,7 @@ func _do_report() -> void:
 		_hull_below_50_count, _hull_below_20_count, str(_hull_never_threatened)])
 	_a.log("SCORE|MARGIN_TREND|declining_streaks=%d worst_loss=%d worst_pct=%.0f" % [
 		_declining_margin_streaks, _worst_single_loss, _worst_loss_pct])
-	_a.log("SCORE|FO_REACTIVITY|timeouts=%d mean_latency=%.0f repeats=%d adaptation=%d" % [
+	_a.log("SCORE|FO_REACTIVITY|timeouts=%d mean_latency=%.0f repeats=%d adapt_readiness=%d" % [
 		_fo_react_timeouts, fo_mean_latency, _fo_dialogue_repeats, _fo_adaptation_events])
 	_a.log("SCORE|COMBAT_LOOT|with=%d without=%d rate=%.0f%%" % [
 		_combat_loot_count, _combat_no_loot_count, loot_rate])
@@ -3748,8 +3839,10 @@ func _do_report() -> void:
 		_modules_installed_by_bot, _modules_attempted,
 		str(_doctrine_set_by_bot), str(_research_started_by_bot),
 		_discoveries_scanned, _fragments_collected, str(_automation_created)])
-	_a.log("SCORE|PROGRAMS|created=%d types=%s monitoring=%d" % [
-		_automations_created, str(_automation_types_created.keys()), _program_monitoring_count])
+	var auto_net := _automation_total_earned - _automation_total_expense
+	_a.log("SCORE|PROGRAMS|created=%d types=%s monitoring=%d earned=%d expense=%d net=%d" % [
+		_automations_created, str(_automation_types_created.keys()), _program_monitoring_count,
+		_automation_total_earned, _automation_total_expense, auto_net])
 	_a.log("SCORE|FRACTURE|travels=%d" % _fracture_travels)
 	_a.log("SCORE|PLANET_SCAN|scans=%d" % _planet_scans_performed)
 	_a.log("SCORE|CONSTRUCTION|started=%d" % _constructions_started)
@@ -4008,6 +4101,130 @@ func _compute_novelty_rate() -> float:
 	# New things per decision (new nodes, new goods, new systems)
 	var total_new := _visited.size() + _goods_bought.size() + _goods_sold.size() + _systems_introduced.size()
 	return float(total_new) / maxi(_decision, 1)
+
+
+## Economy growth rate per 50-decision window — shows WHERE acceleration happens.
+func _compute_growth_rate_windows() -> void:
+	_growth_rate_windows.clear()
+	if _credit_trajectory.size() < 10:
+		_economy_growth_trend = "INSUFFICIENT_DATA"
+		return
+	var window_size := 15  # ~15 samples per window → 5+ windows from ~77 samples
+	var n := _credit_trajectory.size()
+	# Sample credit trajectory at window boundaries
+	var window_idx := 0
+	var i := 0
+	while i + window_size <= n:
+		var start_val := float(_credit_trajectory[i])
+		var end_val := float(_credit_trajectory[mini(i + window_size - 1, n - 1)])
+		var rate := (end_val - start_val) / maxf(start_val, 100.0)  # growth rate as fraction
+		_growth_rate_windows.append({
+			"window": window_idx,
+			"start_credits": int(start_val),
+			"end_credits": int(end_val),
+			"rate": snapped(rate, 0.001),
+		})
+		window_idx += 1
+		i += window_size
+	# Compute acceleration (rate of change of growth rates)
+	if _growth_rate_windows.size() >= 3:
+		var early_rates: Array = []
+		var late_rates: Array = []
+		var half := _growth_rate_windows.size() / 2
+		for j in range(half):
+			early_rates.append(float(_growth_rate_windows[j].get("rate", 0)))
+		for j in range(half, _growth_rate_windows.size()):
+			late_rates.append(float(_growth_rate_windows[j].get("rate", 0)))
+		var early_avg := 0.0
+		for r in early_rates:
+			early_avg += r
+		early_avg /= maxf(float(early_rates.size()), 1.0)
+		var late_avg := 0.0
+		for r in late_rates:
+			late_avg += r
+		late_avg /= maxf(float(late_rates.size()), 1.0)
+		_economy_acceleration = late_avg - early_avg
+		if _economy_acceleration > 0.05:
+			_economy_growth_trend = "ACCELERATING"
+		elif _economy_acceleration < -0.05:
+			_economy_growth_trend = "DECELERATING"
+		else:
+			# Check variance to distinguish STEADY from VOLATILE
+			var all_rates: Array = []
+			for w in _growth_rate_windows:
+				all_rates.append(float(w.get("rate", 0)))
+			var mean_rate := 0.0
+			for r in all_rates:
+				mean_rate += r
+			mean_rate /= maxf(float(all_rates.size()), 1.0)
+			var variance := 0.0
+			for r in all_rates:
+				variance += (r - mean_rate) * (r - mean_rate)
+			variance /= maxf(float(all_rates.size()), 1.0)
+			if variance > 0.01:
+				_economy_growth_trend = "VOLATILE"
+			else:
+				_economy_growth_trend = "STEADY"
+
+
+## Enhanced longest streak with action type detail.
+func _compute_longest_streak_detail() -> void:
+	if _action_type_history.size() == 0:
+		return
+	var longest := 1
+	var current := 1
+	var streak_type: String = _action_type_history[0]
+	var streak_start := 0
+	var best_type: String = _action_type_history[0]
+	var best_start := 0
+	for i in range(1, _action_type_history.size()):
+		if _action_type_history[i] == _action_type_history[i - 1]:
+			current += 1
+			if current > longest:
+				longest = current
+				best_type = str(_action_type_history[i])
+				best_start = streak_start
+		else:
+			current = 1
+			streak_start = i
+	_longest_streak_type = best_type
+	_longest_streak_start = best_start
+
+
+## Route diversity per 100-decision window — detects when diversity collapses.
+func _compute_route_diversity_timeline() -> void:
+	_route_diversity_windows.clear()
+	var window_size := 100
+	var window_idx := 0
+	var i := 0
+	while i < _actions.size():
+		var unique_routes: Dictionary = {}
+		var trade_count := 0
+		var last_loc := ""
+		var j := i
+		while j < _actions.size() and j < i + window_size:
+			var atype: String = str(_actions[j].get("type", ""))
+			if atype == "TRAVEL":
+				var dest := str(_actions[j].get("node", ""))
+				if not last_loc.is_empty() and not dest.is_empty():
+					var route := "%s>%s" % [last_loc, dest]
+					unique_routes[route] = true
+				last_loc = dest
+			elif atype == "BUY" or atype == "SELL":
+				trade_count += 1
+				last_loc = str(_actions[j].get("node", ""))
+			j += 1
+		var diversity := float(unique_routes.size()) / maxf(float(trade_count), 1.0)
+		_route_diversity_windows.append({
+			"window": window_idx,
+			"unique_routes": unique_routes.size(),
+			"total_trades": trade_count,
+			"diversity": snapped(diversity, 0.01),
+		})
+		if _diversity_collapse_decision < 0 and diversity < 0.3 and trade_count >= 5:
+			_diversity_collapse_decision = window_idx * window_size
+		window_idx += 1
+		i += window_size
 
 
 # ---- Probe helpers ----
@@ -5210,6 +5427,29 @@ func _analyze_issues(
 			"prescription": "Add more dialogue variety per trigger type; track recently-used tokens and avoid repeats",
 			"file": "SimCore/Content/FirstOfficerContentV0.cs"
 		})
+	if _fo_content_exhausted_at > 0:
+		issues.append({
+			"severity": "MAJOR", "category": "FO_CONTENT_DENSITY",
+			"description": "FO content exhausted at decision %d — no new dialogue after %d unique tokens" % [_fo_content_exhausted_at, _fo_dialogue_token_ids.size()],
+			"prescription": "Add 50+ ambient observation lines (station commentary, space weather, trade tips, lore fragments). Content pool should last the full first hour",
+			"file": "SimCore/Content/FirstOfficerContentV0.cs"
+		})
+
+	# ---- ECONOMY GROWTH TREND ----
+	if _economy_growth_trend == "ACCELERATING" and _growth_rate_windows.size() >= 3:
+		issues.append({
+			"severity": "MAJOR", "category": "ECONOMY_GROWTH",
+			"description": "Economy growth is ACCELERATING (accel=%.3f) — exponential runaway, no sigmoid transition" % _economy_acceleration,
+			"prescription": "Add percentage-based sinks (fuel as %% of cargo value, insurance premiums) to create natural deceleration at higher credit levels",
+			"file": "SimCore/Tweaks/FleetUpkeepTweaksV0.cs OR SimCore/Systems/MarketSystem.cs"
+		})
+	if _diversity_collapse_decision > 0:
+		issues.append({
+			"severity": "MAJOR", "category": "ROUTE_DIVERSITY",
+			"description": "Route diversity collapsed below 0.3 at decision %d — player locked into grind pattern" % _diversity_collapse_decision,
+			"prescription": "Increase RecentTradeDampenBps or add novelty bonus for unvisited routes. Break grind patterns with FO suggestions",
+			"file": "SimCore/Systems/MarketSystem.cs OR SimCore/Tweaks/MarketTweaksV0.cs"
+		})
 
 	# ---- HULL TENSION (gap #5) ----
 	if _hull_never_threatened and _total_combats > 5:
@@ -5569,6 +5809,9 @@ func _write_json_report(issues: Array, net_profit: int, end_credits: int,
 				"goods_bought": _goods_bought.size(),
 				"goods_sold": _goods_sold.size(),
 				"sink_faucet_ratio": float(_total_spent) / maxf(float(_total_earned), 1.0),
+				"growth_trend": _economy_growth_trend,
+				"growth_acceleration": snapped(_economy_acceleration, 0.001),
+				"growth_rate_windows": _growth_rate_windows,
 			},
 			"pacing": {
 				"reward_count": _reward_events.size(),
@@ -5576,6 +5819,8 @@ func _write_json_report(issues: Array, net_profit: int, end_credits: int,
 				"max_gap": max_gap,
 				"entropy": snapped(entropy, 0.01),
 				"longest_streak": longest_streak,
+				"longest_streak_type": _longest_streak_type,
+				"longest_streak_start": _longest_streak_start,
 			},
 			"combat": {
 				"total": _total_combats,
@@ -5599,6 +5844,8 @@ func _write_json_report(issues: Array, net_profit: int, end_credits: int,
 				"score": snapped(grind_score, 0.01),
 				"route_repeats": route_repeats,
 				"good_repeats": good_repeats,
+				"diversity_timeline": _route_diversity_windows,
+				"diversity_collapse_decision": _diversity_collapse_decision,
 			},
 			"fo": {
 				"promoted": _fo_promoted,
@@ -5723,7 +5970,9 @@ func _write_json_report(issues: Array, net_profit: int, end_credits: int,
 				"timeouts": _fo_react_timeouts,
 				"dialogue_repeats": _fo_dialogue_repeats,
 				"unique_tokens": _fo_dialogue_token_ids.size(),
-				"adaptation_events": _fo_adaptation_events,
+				"adaptation_readiness": _fo_adaptation_events,
+				"last_new_token_decision": _fo_last_new_token_decision,
+				"content_exhausted_at": _fo_content_exhausted_at,
 			},
 			"combat_loot": {
 				"with_loot": _combat_loot_count,

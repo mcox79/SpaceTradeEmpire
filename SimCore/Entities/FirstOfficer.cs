@@ -96,6 +96,14 @@ public sealed class FirstOfficer
     // Tick when FO last spoke (any trigger). Used by silence fallback to detect long gaps.
     [JsonInclude] public int LastDialogueTick { get; set; }
 
+    // GATE.T67.FO.DOCK_GREETING.001: Deferred dock greeting flag.
+    // Set when player first docks before FO is promoted. Fires greeting after promotion.
+    [JsonInclude] public bool DeferredDockGreeting { get; set; }
+
+    // GATE.T67.FO.SILENCE_DECISIONS.001: Decision counter for silence tracking.
+    // Incremented each time the player takes an action (buy/sell/travel/dock).
+    [JsonInclude] public int DecisionsSinceLastLine { get; set; }
+
     // Current pending dialogue line (set by system, consumed by bridge). Transient.
     [JsonIgnore] public string PendingDialogueLine { get; set; } = "";
     [JsonIgnore] public string PendingTriggerToken { get; set; } = "";

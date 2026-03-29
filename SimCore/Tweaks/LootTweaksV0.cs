@@ -31,8 +31,18 @@ public static class LootTweaksV0
     public const int EpicGoodsQtyMin = 3;
     public const int EpicGoodsRange = 5; // 3-7 units of rare material
 
+    // GATE.T67.COMBAT.LOOT_FLOOR.001: Guaranteed minimum salvage on every kill.
+    // FTL pattern: every kill yields at least basic scrap. Prevents "empty kill" frustration.
+    public const int GuaranteedScrapQty = 1; // 1 unit of fuel or ore on every kill
+    public static readonly string[] GuaranteedScrapPool =
+    {
+        Content.WellKnownGoodIds.Fuel,
+        Content.WellKnownGoodIds.Ore,
+    };
+
     // GATE.T64.COMBAT.PITY_JACKPOT.001: Pity timer — force Uncommon+ after N consecutive Commons.
-    public const int PityThreshold = 5;
+    // GATE.T67.COMBAT.LOOT_FLOOR.001: Reduced from 5→3. Destiny pity-timer research: 3 streak max.
+    public const int PityThreshold = 3;
     // GATE.T64.COMBAT.PITY_JACKPOT.001: Jackpot — force Rare+ every Nth kill.
     public const int JackpotKillInterval = 7;
 

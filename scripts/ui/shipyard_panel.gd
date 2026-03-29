@@ -226,9 +226,9 @@ func _on_buy_pressed(class_id: String, display_name: String) -> void:
 		toast_mgr = get_tree().root.find_child("ToastManager", true, false)
 	if toast_mgr and toast_mgr.has_method("show_priority_toast"):
 		if success:
-			toast_mgr.call("show_priority_toast", "Ship acquired: %s" % display_name, UITheme.GREEN)
+			toast_mgr.call("show_priority_toast", "Ship acquired: %s" % display_name, "trade")
 		else:
-			toast_mgr.call("show_priority_toast", "Purchase failed: %s" % message, UITheme.RED_LIGHT)
+			toast_mgr.call("show_priority_toast", "Purchase failed: %s" % message, "warning")
 
 	# Refresh catalog after purchase
 	if success:

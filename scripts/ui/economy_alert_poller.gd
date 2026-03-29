@@ -47,11 +47,11 @@ func _poll_alerts() -> void:
 		if text.is_empty():
 			continue
 		var color: String = _get_alert_color(alert)
-		# Use colored toast if available, otherwise fallback to priority toast.
+		# Use colored toast if available, otherwise fallback to trade priority toast.
 		if _toast_manager.has_method("show_toast_colored"):
 			_toast_manager.call("show_toast_colored", text, 5.0, color)
 		elif _toast_manager.has_method("show_priority_toast"):
-			_toast_manager.call("show_priority_toast", text, "warning")
+			_toast_manager.call("show_priority_toast", text, "trade")
 		elif _toast_manager.has_method("show_toast"):
 			_toast_manager.call("show_toast", text, 5.0)
 		count += 1

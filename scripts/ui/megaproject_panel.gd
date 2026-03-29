@@ -284,10 +284,10 @@ func _on_start_megaproject(type_id: String) -> void:
 	var success: bool = bool(result.get("success", false))
 	var toast_mgr = get_node_or_null("/root/ToastManager")
 	if success:
-		if toast_mgr and toast_mgr.has_method("show_toast"):
-			toast_mgr.call("show_toast", "Megaproject started!", 4.0)
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+			toast_mgr.call("show_priority_toast", "Megaproject started!", "system", 4.0)
 		_refresh_v0()
 	else:
 		var reason: String = str(result.get("reason", "unknown"))
-		if toast_mgr and toast_mgr.has_method("show_toast"):
-			toast_mgr.call("show_toast", "Cannot start: " + reason, 4.0)
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+			toast_mgr.call("show_priority_toast", "Cannot start: " + reason, "warning", 4.0)

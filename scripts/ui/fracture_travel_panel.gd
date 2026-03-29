@@ -74,8 +74,8 @@ func open_v0() -> void:
 		var status: Dictionary = _bridge.call("GetFractureDiscoveryStatusV0")
 		if not status.get("unlocked", false):
 			var toast_mgr = get_node_or_null("/root/ToastManager")
-			if toast_mgr and toast_mgr.has_method("show_toast"):
-				toast_mgr.call("show_toast", "Fracture drive not yet discovered.")
+			if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+				toast_mgr.call("show_priority_toast", "Fracture drive not yet discovered.", "warning")
 			return
 	_populate_sites()
 	visible = true

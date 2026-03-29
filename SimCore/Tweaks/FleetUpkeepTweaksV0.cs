@@ -5,10 +5,12 @@ public static class FleetUpkeepTweaksV0
 {
     // GATE.T52.ECON.UPKEEP_TUNE.001: Upkeep scaled for meaningful credit tension.
     // Per-cycle upkeep cost in credits by ship class.
-    // Shuttle = 0: solo explorer in a starter ship has no crew, no fleet overhead.
-    // Empire-scale costs scale in with fleet size (corvette+).
-    // Design: Factorio/Subnautica — no time pressure in the first hour.
-    public const int ShuttleUpkeep = 0;
+    // GATE.T67.ECON.SINK_UPKEEP.001: Shuttle upkeep raised from 0 to create early-game sink.
+    // Solo explorer in a starter ship pays minimal upkeep as investment, not punishment.
+    // EVE/X4 pattern: small ongoing costs encourage trade engagement.
+    // fh_14: Reduced 50→20. Visual bot showed death spiral at 50 — too aggressive for
+    // new players who explore more than trade. 20 is nonzero sink but survivable.
+    public const int ShuttleUpkeep = 20;
     public const int CorvetteUpkeep = 250;
     public const int ClipperUpkeep = 200;
     public const int FrigateUpkeep = 400;
@@ -67,9 +69,27 @@ public static class FleetUpkeepTweaksV0
 
     // GATE.T65.ECON.SINK_BOOST.001: Per-hop lane transit fee (credits).
     // EVE/X4 pattern: meaningful credit drain per jump to prevent infinite free travel.
-    // 35 cr/hop × 2 hops/trade = 70 cr friction on a ~444 cr electronics trade (16% sink).
-    // Raised from 20 to target sink_faucet ≥ 0.35 (was 0.189).
-    public const int LaneTransitFeeCr = 35;
+    // fh_11: sink_faucet=0.001-0.004 (target >0.05). Transit fee was negligible (35 cr vs 750K earnings).
+    // Raised to 150 cr/hop. 2 hops/trade × 150 = 300 cr friction (~5% of a 6000 cr trade).
+    public const int LaneTransitFeeCr = 150;
+
+    // GATE.T67.ECON.SINK_UPKEEP.001: Docking fee per dock event (credits).
+    // EVE station tax pattern: small fee per dock encourages efficient route planning.
+    // fh_11: Raised from 20→75 cr. Combined with transit fee, total per-trade overhead = 375 cr.
+    public const int DockingFeeCr = 75;
+
+    // fh_14: Raised from 250→350 bps (3.5%). Safety net waives flat fees for low-credit players,
+    // reducing effective sink ratio to 0.038. Trade tax is proportional and only fires on
+    // profitable actions, so it compensates without punishing struggling players.
+    // At 200 decisions with ~107K earned: 3.5% = ~3750 cr sink → sink_faucet ~0.06.
+    public const int TradeTaxBps = 350; // 3.5% tax on all trades
+
+    // fh_14: Economy safety net — waive passive costs when credits critically low.
+    // Prevents death spiral where slow-trading players bleed to negative credits.
+    // Per design: "costs as investment, not punishment" and "no time pressure on player ship."
+    // When PlayerCredits < threshold: upkeep, transit fees, and docking fees waived.
+    // Trade tax stays (proportional to income, only triggers on profitable action).
+    public const int LowFundsThreshold = 500;
 
     // GATE.T48.TENSION.MAINTENANCE.001: Hull degradation per cycle (wear and tear).
     public const int HullDegradCycleTicks = 45;

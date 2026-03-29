@@ -5,6 +5,8 @@ public static class WellKnownModuleIds
 {
     public const string CapModuleRefinery = "cap_module_refinery";
     public const string WeaponCannonMk1   = "weapon_cannon_mk1";
+    // GATE.T66.COMBAT.PIRATE_THREAT.001: Added constant for mk2 cannon (used by pirate fleets).
+    public const string WeaponCannonMk2   = "weapon_cannon_mk2";
     public const string WeaponLaserMk1    = "weapon_laser_mk1";
 
     // GATE.S4.CATALOG.MODULE_WAVE.001: new modules

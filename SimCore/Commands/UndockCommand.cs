@@ -21,5 +21,7 @@ public class UndockCommand : ICommand
                 fleet.State = FleetState.Idle;
             }
         }
+        // fh_14: Track player decisions for FO silence fallback.
+        if (state.FirstOfficer != null) state.FirstOfficer.DecisionsSinceLastLine++;
     }
 }

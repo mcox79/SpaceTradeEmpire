@@ -1056,10 +1056,10 @@ When a gate moves to DONE:
 | GATE.T52.MISSION.M7_DIPLOMACY.001 | DONE | M7 Diplomacy mission template |
 | GATE.T52.MISSION.M8_SMUGGLE.001 | DONE | M8 Smuggling mission template |
 | GATE.T52.MISSION.BRIDGE_M7M8.001 | DONE | SimBridge queries for M7/M8 missions |
-| GATE.T52.ECON.STRESS_PROOF.001 | TODO | Stress bot proof: trade diversity + credit tension |
-| GATE.T52.COMBAT.VISUAL_PROOF.001 | TODO | Visual sweep proof: NPC labels + combat readability |
+| GATE.T52.ECON.STRESS_PROOF.001 | SUPERSEDED | Stress bot proof: trade diversity + credit tension (superseded by T67 VFY_RERUN + EXPERIENCE_RERUN) |
+| GATE.T52.COMBAT.VISUAL_PROOF.001 | SUPERSEDED | Visual sweep proof: NPC labels + combat readability (superseded by T67 VFX pass) |
 | GATE.X.HYGIENE.EPIC_REVIEW.052 | DONE | Epic status audit + T53 anchor recommendation |
-| GATE.T52.EVAL.AUDIT_DELTA.001 | TODO | Re-run audit, compare before/after delta |
+| GATE.T52.EVAL.AUDIT_DELTA.001 | SUPERSEDED | Re-run audit, compare before/after delta (superseded by T67 FH_AUDIT.001) |
 | GATE.X.HYGIENE.REPO_HEALTH.053 | DONE | Full test suite + T53 health baseline |
 | GATE.T53.BOT.HAVEN_BRIDGE_WRITE.001 | DONE | Add missing Haven write bridge methods (StartResearchLabSlotV0, StartFabricationV0) |
 | GATE.T53.BOT.PLAYTHROUGH_CORE.001 | DONE | Scripted playthrough bot framework + early-game phases |
@@ -1169,7 +1169,7 @@ When a gate moves to DONE:
 | GATE.T58.UI.BELT_WATCHING.001 | DONE | Belt-watching: route animations + bottleneck visibility |
 | GATE.T58.UI.FLIP_VFX.001 | DONE | Flip Moment 6-channel presentation |
 | GATE.T58.KG.PROGRESSIVE_UI.001 | DONE | KG progressive unlock in knowledge_web_panel |
-| GATE.T58.PROOF.FO_MANAGER_E2E.001 | TODO | Headless proof: FO Manager pipeline E2E |
+| GATE.T58.PROOF.FO_MANAGER_E2E.001 | SUPERSEDED | Headless proof: FO Manager pipeline E2E (superseded by deep systems bot FO domain) |
 | GATE.T58.EVAL.DESIGN_V6.001 | DONE | Design v6 conformance evaluation |
 | GATE.X.HYGIENE.EPIC_REVIEW.058 | DONE | Epic audit + T59 anchor recommendation |
 | GATE.T59.SHIP.VARIANT_DEFS.001 | DONE | 10 faction variant ShipClassDefs + ShipyardTweaksV0 prices |
@@ -1207,7 +1207,7 @@ When a gate moves to DONE:
 | GATE.T60.SPIN.CAMERA_SHAKE.001 | DONE | 0.2s RCS shake on spin engage |
 | GATE.T60.SPIN.TUTORIAL.001 | DONE | FO tutorial beat: "Try spinning up before engaging" |
 | GATE.T60.PROOF.SPIN_E2E.001 | DONE | Headless spin lifecycle proof via deep systems bot |
-| GATE.X.EVAL.BATTLE_STATIONS.001 | TODO | Post-implementation battle stations eval |
+| GATE.X.EVAL.BATTLE_STATIONS.001 | SUPERSEDED | Post-implementation battle stations eval (superseded by T67 combat depth gates) |
 | GATE.X.HYGIENE.EPIC_REVIEW.060 | DONE | Epic audit + T61 anchor recommendation |
 | GATE.T61.MARKET.DEPTH_MODEL.001 | DONE | Market depth field + marginal price impact |
 | GATE.T61.MARKET.BID_ASK.001 | DONE | Bid/ask spread: volatility + trust + heat widening |
@@ -1271,7 +1271,7 @@ When a gate moves to DONE:
 | GATE.T41.UI.CONTROL_HINTS.001 | DONE | Keybind hint overlay at first undock |
 | GATE.T41.UI.FACTION_COLORS.001 | DONE | Faction accent colors in UI + galaxy map |
 | GATE.T41.STABILITY.SEED_1001.001 | DONE | Investigate+fix persistent seed 1001 timeout |
-| GATE.T41.PROOF.FH_REAUDIT.001 | TODO | First-hour re-audit fh_5, produce fh_4-fh_5 delta |
+| GATE.T41.PROOF.FH_REAUDIT.001 | SUPERSEDED | First-hour re-audit fh_5, produce fh_4-fh_5 delta (superseded by T67 FH_AUDIT.001) |
 | GATE.X.HYGIENE.EPIC_REVIEW.063 | DONE | Epic audit + T41 closure + next anchor |
 | GATE.T63.PACING.MID_EXPLORE_BEAT.001 | DONE | FO milestone dialogue after ALL_NODES |
 | GATE.T63.COMBAT.EARLY_PIRATE.001 | DONE | Hostile NPC within 2 hops by d100 |
@@ -1309,11 +1309,11 @@ When a gate moves to DONE:
 | GATE.T64.BRIDGE.API_FIXES.001 | DONE | GetMarketAlertsV0 GDScript reg + scan charges alias |
 | GATE.T64.UI.FONT_MICRO.001 | DONE | FONT_MICRO=10 + combat_hud.gd cleanup |
 | GATE.T64.COVERAGE.FO_MANAGER.001 | DONE | FOManager methods in deep systems bot |
-| GATE.X.HYGIENE.REPO_HEALTH.065 | TODO | T64 health baseline |
-| GATE.X.HYGIENE.EPIC_REVIEW.065 | TODO | Epic audit + T64 closure + next anchor |
-| GATE.T64.PROOF.AUDIT_DELTA.001 | TODO | Re-audit first-hour, audit_13→audit_14 delta |
-| GATE.X.EVAL.FH_DEPTH_PROOF.001 | TODO | Re-run fh_6 audit, fh_5 vs fh_6 delta |
-| GATE.X.EVAL.PERF_PROFILE.063 | TODO | FPS profiling session |
+| GATE.X.HYGIENE.REPO_HEALTH.065 | SUPERSEDED | T64 health baseline (superseded by REPO_HEALTH.068) |
+| GATE.X.HYGIENE.EPIC_REVIEW.065 | SUPERSEDED | Epic audit + T64 closure + next anchor (superseded by EPIC_REVIEW.068) |
+| GATE.T64.PROOF.AUDIT_DELTA.001 | SUPERSEDED | Re-audit first-hour, audit_13→audit_14 delta (superseded by T67 FH_AUDIT.001) |
+| GATE.X.EVAL.FH_DEPTH_PROOF.001 | SUPERSEDED | Re-run fh_6 audit, fh_5 vs fh_6 delta (superseded by T67 FH_AUDIT.001) |
+| GATE.X.EVAL.PERF_PROFILE.063 | SUPERSEDED | FPS profiling session (superseded by T67 FPS_OPTIMIZE.001) |
 | GATE.T65.ECON.DAMPEN_CAP.001 | DONE | Reduce max trade dampening 9500→5000bps |
 | GATE.T65.ECON.SINK_BOOST.001 | DONE | Strengthen credit sinks, target ratio ≥0.35 |
 | GATE.T65.ECON.ROUTE_NOVELTY.001 | DONE | Novelty bonus for new routes |
@@ -1329,6 +1329,95 @@ When a gate moves to DONE:
 | GATE.T65.EVAL.FH_AUDIT.001 | DONE | Re-audit first-hour, 20-dim scorecard |
 | GATE.X.HYGIENE.REPO_HEALTH.066 | DONE | T65 health baseline |
 | GATE.X.HYGIENE.EPIC_REVIEW.066 | DONE | Epic audit + T65 closure + next anchor |
+| GATE.X.HYGIENE.REPO_HEALTH.067 | DONE | T66 health baseline: full suite + golden hash stability |
+| GATE.T66.BOT.VERIFY_PROBES.001 | DONE | Fix 5 verification bot probe bugs |
+| GATE.T66.BOT.EXPERIENCE_CALIBRATE.001 | DONE | Calibrate experience bot grind thresholds |
+| GATE.T66.ECON.GRIND_REDUCTION.001 | DONE | Accelerate route dampening, reduce grind score |
+| GATE.T66.ECON.MARGIN_FLOOR.001 | DONE | Add late-game margin floor, cap decline at -30% |
+| GATE.T66.ECON.EXPLORATION_INCENTIVE.001 | DONE | First-visit station bonus 1.5x margin |
+| GATE.T66.PERF.FPS_PROFILE.001 | DONE | Deep FPS profiling, identify min=6.8 bottleneck |
+| GATE.T66.FO.DOCK_RELIABILITY.001 | DONE | Fix FO dock greeting delivery reliability |
+| GATE.T66.FO.SILENCE_FILL.001 | DONE | Reduce FO max silence gap 270→<80 decisions |
+| GATE.T66.PACING.DEAD_ZONE_INJECT.001 | DONE | Mid-session reward injection for dead zones |
+| GATE.T66.COMBAT.PIRATE_THREAT.001 | DONE | Increase pirate damage, hull_min 100%→<90% |
+| GATE.T66.COMBAT.FIGHT_EXTEND.001 | DONE | Extend fights to 3-4 volleys minimum |
+| GATE.T66.SPATIAL.DARK_SYSTEM_FIX.001 | DONE | Add spatial anchors to dark systems |
+| GATE.T66.SPATIAL.SYSTEM_IDENTITY.001 | DONE | Faction accent colors + star tint per system |
+| GATE.T66.PERF.FPS_OPTIMIZE.001 | DONE | Implement FPS fixes from profiling, target >=30 |
+| GATE.T66.PROOF.VERIFY_RERUN.001 | DONE | Re-run verification bot, 37 probes post-fix |
+| GATE.T66.PROOF.EXPERIENCE_RERUN.001 | DONE | Re-run experience bot multi-seed post-fix |
+| GATE.T66.PROOF.FH_AUDIT.001 | DONE | First-hour audit fh_9, fh_8→fh_9 delta |
+| GATE.T66.EVAL.VISUAL_PROOF.001 | DONE | Visual proof: lanes, keybinds, toasts, warp, heading |
+| GATE.X.HYGIENE.EPIC_REVIEW.067 | DONE | Epic audit, close completed, remove superseded gates |
+| GATE.T67.BOT.FH_CALIBRATE.001 | DONE | FH bot false-positive fixes (NPC visibility, explore depth) |
+| GATE.T67.BOT.VFY_COMBAT.001 | DONE | VFY bot real combat via ResolveCombatV0 + one-shot/round probes |
+| GATE.T67.BOT.VFY_FO.001 | DONE | VFY bot FO "never spoke" silence detection |
+| GATE.T67.COMBAT.LOOT_FLOOR.001 | DONE | Guaranteed minimum salvage on every kill |
+| GATE.T67.COMBAT.SHIELD_GRACE.001 | DONE | Shield grace period, minimum 3 combat rounds |
+| GATE.T67.ECON.LATE_GOODS.001 | DONE | Late-game high-value goods unlock at 8+ visited nodes |
+| GATE.T67.ECON.MARGIN_CURVE.001 | DONE | Inverted-U competence margin curve |
+| GATE.T67.ECON.ROUTE_DECAY.001 | DONE | Exponential route dampening for grind reduction |
+| GATE.T67.ECON.SINK_UPKEEP.001 | DONE | Shuttle upkeep + docking fees for economy sinks |
+| GATE.T67.EVAL.DESIGN_RESEARCH.001 | DONE | Compile game design research into reference doc |
+| GATE.T67.FO.AMBIENT_CONTENT.001 | DONE | 15-20 new FO ambient observation lines |
+| GATE.T67.FO.DOCK_GREETING.001 | DONE | FO guaranteed greeting at first dock |
+| GATE.T67.FO.SILENCE_DECISIONS.001 | DONE | Decision-based FO silence breaker (25 decision floor) |
+| GATE.T67.PACING.STREAK_BREAKER.001 | DONE | FO injection after 15+ consecutive same actions |
+| GATE.T67.PERF.FPS_OPTIMIZE.001 | DONE | FPS optimization to 30+ min visual mode |
+| GATE.T67.PROOF.EXPERIENCE_RERUN.001 | DONE | Experience bot 5-seed rerun post-fixes |
+| GATE.T67.PROOF.FH_AUDIT.001 | DONE | First-hour audit fh_11, fh_10→fh_11 delta |
+| GATE.T67.PROOF.VFY_RERUN.001 | DONE | Verification bot rerun post-fixes |
+| GATE.X.HYGIENE.EPIC_REVIEW.068 | DONE | Epic audit, close T52/S7, mark superseded gates |
+| GATE.X.HYGIENE.REPO_HEALTH.068 | DONE | T67 health baseline: full suite + hash stability |
+| GATE.T68.COMBAT.RESPAWN_STATS.001 | DONE | NPC respawn stats fix (HullHp/ShipClassId/weapon derivation) |
+| GATE.T68.FO.SILENCE_CONTENT.001 | DONE | FO content additions (48 SILENCE_BREAK + MONOTONE_STREAK entries) |
+| GATE.T68.ECON.SINK_PARITY.001 | DONE | Transit fee parity fix in PlayerArriveCommand |
+| GATE.X.HYGIENE.REPO_HEALTH.069 | DONE | T68 health baseline: full suite + hash stability |
+| GATE.T68.VFX.COMBAT_FEEDBACK.001 | DONE | Combat VFX — damage flash, vignette, shake, kill banner |
+| GATE.T68.VFX.CREDIT_FLASH.001 | DONE | Credit feedback animation on trade profit |
+| GATE.T68.UI.KEYBIND_HINTS.001 | DONE | Keybind hints visible in HUD at boot |
+| GATE.T68.UI.TOAST_TYPES.001 | DONE | Toast type differentiation — color/icon per category |
+| GATE.T68.SPATIAL.LANE_3D.001 | DONE | Lane visibility in 3D system view |
+| GATE.T68.ECON.ROUTE_DAMPEN_V2.001 | DONE | Aggressive route dampening + per-good tracking |
+| GATE.T68.ECON.MARGIN_CURVE_V2.001 | DONE | Fix competence margin decline (-64% -> <20%) |
+| GATE.T68.FO.AMBIENT_EXPAND.001 | DONE | Expand FO ambient content to cover 720 decisions |
+| GATE.T68.ECON.PERCENTAGE_SINKS.001 | DONE | Percentage-based transaction tax for economy sinks |
+| GATE.T68.PACING.EVENT_INTERRUPTS.001 | DONE | Inject market/event interrupts to break monotone streaks |
+| GATE.T68.PERF.FPS_V2.001 | DONE | FPS optimization pass 2 — target 30+ min visual |
+| GATE.T68.EVAL.CONTENT_COMPLETENESS.001 | DONE | Automated content completeness validator |
+| GATE.T68.PROOF.VFY_RERUN.001 | DONE | VFY bot rerun post-T68 fixes |
+| GATE.T68.PROOF.EXPERIENCE_RERUN.001 | DONE | Experience bot 5-seed rerun post-T68 fixes |
+| GATE.T68.PROOF.FH_AUDIT.001 | DONE | First-hour audit fh_13, fh_12->fh_13 delta |
+| GATE.X.HYGIENE.EPIC_REVIEW.069 | DONE | Epic audit — close completed, recommend T69 anchor |
+| GATE.T69.ECON.ROUTE_DIVERSITY_V3.001 | DONE | Route dampening V3 — faster decay, harsher exponential penalty |
+| GATE.T69.ECON.COMPETENCE_V3.001 | DONE | Competence margin V3 — 10x experienced decay, 70% late variance |
+| GATE.T69.ECON.SINK_TAX_V3.001 | DONE | Economy sinks V3 — trade tax 2.5→3.5% |
+| GATE.T69.PACING.STREAK_V2.001 | DONE | Streak breaker V2 — monotone 15→10, event interrupt 20→15 |
+| GATE.T69.BOT.VFY_V3.001 | DONE | VFY bot V3 — FO promotion, 3-method tracking, extended runtime |
+| GATE.T69.TEST.SAFETY_NET_COMPAT.001 | DONE | Test adaptation — upkeep tests + golden hash + balance baseline |
+| GATE.T69.PROOF.FH_AUDIT.001 | DONE | First-hour audit fh_14 — VFY-confirmed issue verification |
+| GATE.X.HYGIENE.EPIC_REVIEW.070 | DONE | Epic review — close T69, verify T68→T69 delta |
+| GATE.T70.ECON.MARKET_VOLATILITY.001 | TODO | Per-trade price drift via supply/demand shift |
+| GATE.T70.ECON.PRICE_FLOOR.001 | TODO | Munitions price floor enforcement in MarketInitGen |
+| GATE.T70.FO.LRU_TOKEN.001 | TODO | FO ProcessSilenceFallback LRU token selection fix |
+| GATE.T70.EXPLORE.DISCOVERY_SEED.001 | TODO | Seed 1-2 anomaly fragments within 3-4 hops of starter |
+| GATE.T70.ECON.MARGIN_DECAY.001 | TODO | Fix competence margin decline -60 to -81% |
+| GATE.T70.UI.COMBAT_JUICE.001 | TODO | Combat VFX — damage flash, shake, vignette, banner |
+| GATE.T70.UI.TOAST_TYPES.001 | TODO | Color-coded toast types, remove bracket tags |
+| GATE.X.HYGIENE.REPO_HEALTH.070 | TODO | T70 health baseline: full suite + hash stability |
+| GATE.T70.THREAT.NODE_THREAT_LEVEL.001 | TODO | BFS Node.ThreatLevel (0-5) from Haven |
+| GATE.T70.THREAT.NPC_SCALING.001 | TODO | NPC ship class selection by threat level |
+| GATE.T70.THREAT.MARGIN_SCALING.001 | TODO | Trade margin bonus by threat level |
+| GATE.T70.THREAT.FO_DIALOGUE.001 | TODO | FO threat-level-change dialogue (3 archetypes × 5 transitions) |
+| GATE.T70.THREAT.LANE_EVENTS.001 | TODO | RiskSystem threat-gated transit events |
+| GATE.T70.COMBAT.LOOT_ELITE.001 | TODO | Loot pity fix + TL4+ elite pirate drops |
+| GATE.T70.THREAT.GALAXY_VIZ.001 | TODO | Galaxy map threat color overlay + patrol rings |
+| GATE.T70.THREAT.BRIDGE_QUERY.001 | TODO | SimBridge threat level query methods |
+| GATE.T70.EXPLORE.DISCOVERY_BY_TL.001 | TODO | Gate discovery placement by threat level |
+| GATE.T70.THREAT.CONTRACT_TESTS.001 | TODO | Contract tests: TL, NPC scaling, margin, events |
+| GATE.T70.PROOF.FH_AUDIT.001 | TODO | First-hour audit fh_15 — post-danger-gradient |
+| GATE.X.HYGIENE.EPIC_REVIEW.071 | TODO | Epic audit: create T70 epic, update statuses |
+| GATE.X.EVAL.DANGER_DESIGN_REVIEW.001 | TODO | Design review: TDG implementation vs design doc |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -3833,10 +3922,10 @@ Anchor: EPIC.T52.AUDIT_FIXES.V0 (NEW). Expansion: S6.UI_DISCOVERY, S9.MISSION_LA
 | GATE.T52.MISSION.M7_DIPLOMACY.001 | DONE | M7 Diplomacy mission template: treaty delivery + faction rep reward. 5-8 variants with procedural faction/destination. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Content/MissionTemplateContentV0.cs |
 | GATE.T52.MISSION.M8_SMUGGLE.001 | DONE | M8 Smuggling mission: contraband delivery + trace risk escalation. 5-8 variants. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Content/MissionTemplateContentV0.cs |
 | GATE.T52.MISSION.BRIDGE_M7M8.001 | DONE | SimBridge queries for M7/M8 mission-specific data (treaty status, contraband detection risk). Bridge T2. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "Mission"` | scripts/bridge/SimBridge.Mission.cs |
-| GATE.T52.ECON.STRESS_PROOF.001 | TODO | Run stress bot (1500 cycles), verify: trade diversity ≥8/12 goods, credit direction changes ≥3, tariff revenue >0. Tier 3. Proof: headless stress bot | scripts/tests/exploration_bot_v1.gd |
-| GATE.T52.COMBAT.VISUAL_PROOF.001 | TODO | Run visual sweep, verify: NPC labels visible in npc_closeup frame, HOSTILE text on hostile NPC, health bars present. Tier 3. Proof: headless screenshot bot | scripts/tests/visual_sweep_bot_v0.gd |
+| GATE.T52.ECON.STRESS_PROOF.001 | SUPERSEDED | Run stress bot (1500 cycles), verify: trade diversity ≥8/12 goods, credit direction changes ≥3, tariff revenue >0. Superseded by T67 VFY_RERUN + EXPERIENCE_RERUN. | scripts/tests/exploration_bot_v1.gd |
+| GATE.T52.COMBAT.VISUAL_PROOF.001 | SUPERSEDED | Run visual sweep, verify: NPC labels visible in npc_closeup frame, HOSTILE text on hostile NPC, health bars present. Superseded by T67 VFX pass. | scripts/tests/visual_sweep_bot_v0.gd |
 | GATE.X.HYGIENE.EPIC_REVIEW.052 | DONE | Epic status audit: close completed epics, recommend T53 anchor. Tier 3. Proof: `grep -c 'DONE' docs/54_EPICS.md` | docs/54_EPICS.md |
-| GATE.T52.EVAL.AUDIT_DELTA.001 | TODO | Re-run audit, compare before/after delta table vs audit_1 baseline. Tier 3. Proof: written report | reports/audit/ |
+| GATE.T52.EVAL.AUDIT_DELTA.001 | SUPERSEDED | Re-run audit, compare before/after delta table vs audit_1 baseline. Superseded by T67 FH_AUDIT.001 (fh_11). | reports/audit/ |
 
 Execution plan:
 - Tier 1 (10 gates): core hash chain (TRADE_DIVERSITY → TARIFF_WIRE → UPKEEP_TUNE, M7_DIPLOMACY → M8_SMUGGLE — mission gates share MissionTemplateContentV0.cs, combine agent), core non-hash (CONTENT_EXTRACT), bridge (NPC_LABELS, SCANNER_VIS + PHASE_MARKERS combined — share GalaxyView.cs), docs (REPO_HEALTH).
@@ -4024,7 +4113,7 @@ Design sources: fo_trade_manager_v0.md v6 (R1, R2, R3+N3, R5, R7+R9, R11, N1, N2
 | GATE.T58.UI.BELT_WATCHING.001 | DONE | Route line animations: visible throughput (particle flow along route lines), station arrival/departure indicators, bottleneck highlighting (red pulse on congested nodes), route attribution tooltips, zoom-to-detail on click. Ambient commerce hum. Per N1. Bridge T3. Proof: `dotnet build` | scripts/ui/hud.gd; scripts/core/game_manager.gd; scripts/ui/automation_dashboard.gd |
 | GATE.T58.UI.FLIP_VFX.001 | DONE | Flip Moment 6-channel: (1) FO dialogue, (2) letterbox cinematic framing, (3) audio fanfare, (4) credit counter glow, (5) sparkline crossover animation, (6) Haven trophy wall entry. Per R11. Bridge T3. Proof: `dotnet build` | scripts/ui/hud.gd; scripts/ui/fo_panel.gd; scripts/core/game_manager.gd |
 | GATE.T58.KG.PROGRESSIVE_UI.001 | DONE | knowledge_web_panel.gd: progressive KG verb unlock gated by 7 milestones. Grey-out locked verbs, show unlock hint, animate new verb on unlock. NOT all verbs available at once — R12 mandates progressive disclosure. Bridge T3. Proof: `dotnet build` | scripts/ui/knowledge_web_panel.gd; scripts/ui/hud.gd |
-| GATE.T58.PROOF.FO_MANAGER_E2E.001 | TODO | Headless Godot proof: dock → verify recap displayed → check empire health diamond → view consolidated 5-tab dashboard → FO decision flow → service record visible. Full FO Trade Manager pipeline E2E. Milestone: PLAYABLE_BEAT. Docs T3. | scripts/tests/test_deep_systems_v0.gd; scripts/bridge/SimBridge.FO.cs |
+| GATE.T58.PROOF.FO_MANAGER_E2E.001 | SUPERSEDED | Headless Godot proof: dock → verify recap displayed → check empire health diamond → view consolidated 5-tab dashboard → FO decision flow → service record visible. Superseded by deep systems bot FO domain. | scripts/tests/test_deep_systems_v0.gd; scripts/bridge/SimBridge.FO.cs |
 | GATE.T58.EVAL.DESIGN_V6.001 | DONE | Verify T58 implementation matches fo_trade_manager_v0.md v6 + ExplorationDiscovery.md R12 specs. Produce conformance checklist: each R/N item → gate + pass/gap. Identify deferred items for T59. Docs T3. | docs/design/fo_trade_manager_v0.md; docs/design/ExplorationDiscovery.md |
 | GATE.X.HYGIENE.EPIC_REVIEW.058 | DONE | Epic audit: mark S6 sub-epics IN_PROGRESS from T57+T58, close completed epics, update 54_EPICS.md. Recommend T59 anchor. Docs T3. | docs/54_EPICS.md; docs/55_GATES.md |
 
@@ -4093,7 +4182,7 @@ New epic: EPIC.T60.BATTLE_STATIONS_LIVE.V0 — complete battle stations from bro
 | GATE.T60.SPIN.CAMERA_SHAKE.001 | DONE | 0.2s RCS shake on spin engage/disengage via PhantomCamera3D noise. Bridge T2. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/core/game_manager.gd, scripts/ui/combat_hud.gd |
 | GATE.T60.SPIN.TUTORIAL.001 | DONE | FO tutorial beat: 'Try spinning up before engaging' when first hostile detected and spin never used. TutorialSystem gate. Core T3. Hash-affecting. Proof: `powershell -File scripts/tools/Run-Tests.ps1 -Filter "Determinism"` | SimCore/Systems/TutorialSystem.cs, SimCore/Content/FirstOfficerContentV0.cs |
 | GATE.T60.PROOF.SPIN_E2E.001 | DONE | Add SPIN_LIFECYCLE phase to test_deep_systems_v0.gd: toggle spin, verify SpinningUp, wait ticks, verify BattleReady, dock, verify StandDown reset. Milestone: HEADLESS_PROOF. Bridge T3. Proof: `powershell -File scripts/tools/Run-FHBot-MultiSeed.ps1 -Script deep_systems -Seeds 42` | scripts/tests/test_deep_systems_v0.gd, scripts/tools/bot_assert.gd |
-| GATE.X.EVAL.BATTLE_STATIONS.001 | TODO | Post-implementation eval: run deep systems bot, verify spin activates, hull damage occurs, transitions correct. Assess eval #4/#6/#8 thresholds. Docs T3. Proof: `powershell -File scripts/tools/Run-Tests.ps1 -Filter "RoadmapConsistency"` | scripts/tests/test_deep_systems_v0.gd, docs/54_EPICS.md |
+| GATE.X.EVAL.BATTLE_STATIONS.001 | SUPERSEDED | Post-implementation eval: run deep systems bot, verify spin activates, hull damage occurs, transitions correct. Superseded by T67 combat depth gates. | scripts/tests/test_deep_systems_v0.gd, docs/54_EPICS.md |
 | GATE.X.HYGIENE.EPIC_REVIEW.060 | DONE | Epic audit: mark EPIC.T60.BATTLE_STATIONS_LIVE.V0 + EPIC.S7.SHIP_PROGRESSION.V0 DONE, update ACTIVE_ISSUES, recommend T61 anchor. Docs T3. Proof: `powershell -File scripts/tools/Run-Tests.ps1 -Filter "RoadmapConsistency"` | docs/54_EPICS.md, docs/55_GATES.md |
 
 Execution plan:
@@ -4202,7 +4291,7 @@ New epic: EPIC.T41.AUDIT_FEEL_FIXES.V0. Also advances EPIC.S7.FO_TRADE_MANAGER.V
 | GATE.T41.UI.CONTROL_HINTS.001 | DONE | Semi-transparent key hint overlay at first undock: E=dock, M=map, Tab=tabs, WASD=move. Fade after 10s or first key press. Per first_hour_rubric.md Section 6: control discoverability. Subnautica world-first pattern. Fixes INVISIBLE_CONTROLS. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/ui/hud.gd; scripts/ui/keybinds_help.gd |
 | GATE.T41.UI.FACTION_COLORS.001 | DONE | Wire FactionTweaksV0 primary colors to UI: faction name text, galaxy map node tint, station standing, diplomacy badges. Per visual_eval_guide.md. Fixes FACTION_IDENTICAL. Content T1. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/ui/ui_theme.gd; SimCore/Tweaks/FactionTweaksV0.cs |
 | GATE.T41.STABILITY.SEED_1001.001 | DONE | Investigate seed 1001 persistent timeout (2nd consecutive). Check galaxy topology, bot stall watchdog, add 30s timeout guard on JSON flush. Bridge T1. Proof: `powershell -ExecutionPolicy Bypass -File scripts/tools/Run-ExperienceBot.ps1 -Mode headless -Seed 1001` | scripts/tests/playthrough_bot_v0.gd; scripts/tools/Run-ExperienceBot.ps1 |
-| GATE.T41.PROOF.FH_REAUDIT.001 | TODO | Re-run /audit first-hour (fh_5). Compare 20 dimensions, 5 goals, 5 moments, feel dashboard vs fh_4. Target: 0 CRITICAL, <=3 MAJOR, Goal avg >=4.0. Milestone: REGRESSION_ANCHOR. Docs T3. Proof: `powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode visual` | scripts/tools/Run-FHBot.ps1; scripts/tools/Run-ExperienceBot.ps1 |
+| GATE.T41.PROOF.FH_REAUDIT.001 | SUPERSEDED | Re-run /audit first-hour (fh_5). Superseded by T67 FH_AUDIT.001 (fh_11). | scripts/tools/Run-FHBot.ps1; scripts/tools/Run-ExperienceBot.ps1 |
 | GATE.X.HYGIENE.EPIC_REVIEW.063 | DONE | Epic audit: close completed epics (T52 if all gates done), assess T41 progress, recommend T42+ anchor. Docs T3. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "RoadmapConsistency"` | docs/54_EPICS.md; docs/55_GATES.md |
 
 Execution plan:
@@ -4241,8 +4330,8 @@ Design grounding: first_hour_rubric.md, camera_cinematics_v0.md, fo_trade_manage
 | GATE.T63.GALAXY.FACTION_OVERLAY.001 | DONE | Galaxy map faction territory translucent color fills. Fixes faction map overlay absence. Bridge T2. Blocks: LANE_LABELS. Proof: `dotnet build` | scripts/view/GalaxyView.cs; scripts/bridge/SimBridge.GalaxyMap.cs |
 | GATE.X.HYGIENE.REPO_HEALTH.064 | DONE | T63 health baseline: full suite pass, golden hash stability, dead code scan. Docs T1. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release` | SimCore.Tests/SimCore.Tests.csproj; docs/55_GATES.md |
 | GATE.X.HYGIENE.EPIC_REVIEW.064 | DONE | Epic audit: close T63, assess T41/T52/T58, recommend T64 anchor. Docs T3. Proof: `dotnet test ... --filter "RoadmapConsistency"` | docs/54_EPICS.md; docs/55_GATES.md |
-| GATE.X.EVAL.FH_DEPTH_PROOF.001 | TODO | Re-run /audit first-hour (fh_6). Target: 0 CRITICAL, <=3 MAJOR, Juice >50%, Spatial >3/5. Docs T3. Proof: `Run-FHBot.ps1 -Mode visual` | scripts/tools/Run-FHBot.ps1; scripts/tools/Run-ExperienceBot.ps1 |
-| GATE.X.EVAL.PERF_PROFILE.063 | TODO | FPS profiling: identify frames <30fps, per-system tick budget, optimization targets. EA blocker. Docs T3. Proof: `Run-FHBot.ps1 -Mode visual` | scripts/tools/Run-FHBot.ps1; docs/design/camera_cinematics_v0.md |
+| GATE.X.EVAL.FH_DEPTH_PROOF.001 | SUPERSEDED | Re-run /audit first-hour (fh_6). Superseded by T67 FH_AUDIT.001 (fh_11). | scripts/tools/Run-FHBot.ps1; scripts/tools/Run-ExperienceBot.ps1 |
+| GATE.X.EVAL.PERF_PROFILE.063 | SUPERSEDED | FPS profiling: identify frames <30fps. Superseded by T67 FPS_OPTIMIZE.001. | scripts/tools/Run-FHBot.ps1; docs/design/camera_cinematics_v0.md |
 
 Execution plan:
 - Tier 1 Core (hash chain, sequential): MID_EXPLORE_BEAT → EARLY_PIRATE → LOOT_GUARANTEE → ROUTE_DECAY → LATE_ESCALATION → DOCK_GREETING. Update golden hashes after each.
@@ -4275,9 +4364,9 @@ Source: audit_13 unified_problems.md (47 problems: 5 CRITICAL, 18 MAJOR, 19 MINO
 | GATE.T64.BRIDGE.API_FIXES.001 | DONE | GetMarketAlertsV0 exists but throws in GDScript — fix registration. GetScanChargesV0: add 'current' alias for 'remaining'. Bridge T1. Proof: `dotnet build` | scripts/bridge/SimBridge.Market.cs; scripts/bridge/SimBridge.Planet.cs |
 | GATE.T64.UI.FONT_MICRO.001 | DONE | Add FONT_MICRO:=10 to ui_theme.gd. Replace 11 hardcoded font_size=10 in combat_hud.gd with UITheme.FONT_MICRO. Bridge T1. Proof: `dotnet build` | scripts/ui/ui_theme.gd; scripts/ui/combat_hud.gd |
 | GATE.T64.COVERAGE.FO_MANAGER.001 | DONE | Add FOManager methods (GetDockRecapV0, GetActiveDecisionV0, GetServiceRecordV0, GetFlipMomentV0, GetEmpireHealthV0) to deep systems bot. Bridge T2. Blocks: API_FIXES. Proof: `dotnet build` | scripts/tests/test_deep_systems_v0.gd; scripts/bridge/SimBridge.FO.cs |
-| GATE.X.HYGIENE.REPO_HEALTH.065 | TODO | T64 health baseline: full suite pass, golden hash stability, dead code scan. Docs T1. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release` | SimCore.Tests/SimCore.Tests.csproj; docs/55_GATES.md |
-| GATE.X.HYGIENE.EPIC_REVIEW.065 | TODO | Epic audit: close T64, assess superseded gates (T41.PROOF, T52.EVAL, X.EVAL.FH_DEPTH_PROOF), recommend T65 anchor. Docs T3. Proof: `dotnet test ... --filter "RoadmapConsistency"` | docs/54_EPICS.md; docs/55_GATES.md |
-| GATE.T64.PROOF.AUDIT_DELTA.001 | TODO | Re-run /audit first-hour (audit_14). Compare vs audit_13: 20 dimensions, 5 goals, 5 moments, emotional arc, feel dashboard. Target: 0 CRITICAL, <=3 MAJOR, EA CONDITIONAL→READY. Milestone: REGRESSION_ANCHOR. Docs T3. Proof: `Run-FHBot.ps1 -Mode visual` | scripts/tools/Run-FHBot.ps1; scripts/tools/Run-ExperienceBot.ps1 |
+| GATE.X.HYGIENE.REPO_HEALTH.065 | SUPERSEDED | T64 health baseline: full suite pass, golden hash stability. Superseded by REPO_HEALTH.068. | SimCore.Tests/SimCore.Tests.csproj; docs/55_GATES.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.065 | SUPERSEDED | Epic audit: close T64. Superseded by EPIC_REVIEW.068. | docs/54_EPICS.md; docs/55_GATES.md |
+| GATE.T64.PROOF.AUDIT_DELTA.001 | SUPERSEDED | Re-run /audit first-hour (audit_14). Superseded by T67 FH_AUDIT.001 (fh_11). | scripts/tools/Run-FHBot.ps1; scripts/tools/Run-ExperienceBot.ps1 |
 
 Execution plan:
 - Tier 1 Core (hash chain, sequential): ELECTRONICS_FIX → BANKRUPTCY_FIX → COMBAT_REACTION → SEED_FLOOR → PITY_JACKPOT → FRICTION_SINKS → AMBIENT_TRIGGERS → EARLY_ACCESS. Update golden hashes after each.
@@ -4316,3 +4405,164 @@ Execution plan:
 - Tier 2 Bridge (parallel): COMBAT_VFX (visual proof), VERIFY_DELTA (37-probe re-verification).
 - Tier 3 Docs (sequential): FH_AUDIT, EPIC_REVIEW.066.
 - File conflict groups: hud.gd (HUD_JUICE combines keybind+credit+toast — single agent). All other bridge T1 gates have distinct primary files.
+
+## T66 — Audit Probe Fixes + First-Hour Quality (EPIC.T52.AUDIT_FIXES.V0)
+
+Targeting 15 CONFIRMED fh_8 issues + 5 verification bot probe bugs. Supersedes carry-forward proof gates T41.PROOF.FH_REAUDIT.001, T52.EVAL.AUDIT_DELTA.001, T64.PROOF.AUDIT_DELTA.001, X.EVAL.FH_DEPTH_PROOF.001.
+
+| Gate | Status | Description | Evidence |
+|------|--------|-------------|----------|
+| GATE.X.HYGIENE.REPO_HEALTH.067 | DONE | T66 health baseline: full test suite, golden hash stability, dead code scan. Docs T1. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release` | SimCore.Tests/SimCore.Tests.csproj; scripts/tools/Run-AuditQuick.ps1 |
+| GATE.T66.BOT.VERIFY_PROBES.001 | DONE | Fix 5 probe bugs in test_verify_issues_v0.gd: route_diversity self-loop (save prev_node before update), combat_vignette hierarchy (search DamageVignette in CanvasLayer), combat_screen_shake sampling (camera.global_position delta), credit_feedback timing (sample during flash), combat_banner hierarchy (full tree search). Bridge T1. Proof: `dotnet build` | scripts/tests/test_verify_issues_v0.gd |
+| GATE.T66.BOT.EXPERIENCE_CALIBRATE.001 | DONE | Calibrate experience bot grind thresholds for T63-T65 economy changes. Verify route tracking independent of verification probe bugs. Bridge T1. Proof: `dotnet build` | scripts/tests/test_fh_experience_v0.gd |
+| GATE.T66.ECON.GRIND_REDUCTION.001 | DONE | Accelerate route dampening on repeated routes. Target: grind_score 12.1→<3.0, route_rpt 217→<50. Progressive penalty for same-route trades. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/MarketSystem.cs; SimCore/Tweaks/MarketTweaksV0.cs; SimCore.Tests/Systems/MarketTests.cs |
+| GATE.T66.ECON.MARGIN_FLOOR.001 | DONE | Add late-game margin floor: cap decline at -30% from early baseline (currently -52%). Blocks: GRIND_REDUCTION. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Gen/MarketInitGen.cs; SimCore/Tweaks/MarketTweaksV0.cs |
+| GATE.T66.ECON.EXPLORATION_INCENTIVE.001 | DONE | First-visit station bonus: 1.5x margin on first trade at new station, decaying over 3 trades. Blocks: MARGIN_FLOOR. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/MarketSystem.cs; SimCore/SimState.Properties.cs; SimCore/Tweaks/MarketTweaksV0.cs |
+| GATE.T66.PERF.FPS_PROFILE.001 | DONE | Deep FPS profiling: identify bottleneck causing min=6.8fps, per-frame breakdown (GPU vs CPU), per-system tick budget. Produce optimization target list. Docs T1. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/core/game_manager.gd; scripts/view/GalaxyView.cs |
+| GATE.T66.FO.DOCK_RELIABILITY.001 | DONE | Fix FO dock greeting: diagnose dialogue event flush timing. Ensure GetDockFlavorV0 returns content at first dock. Blocks: EXPLORATION_INCENTIVE (hash chain). Hash-affecting. Core T2. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/FirstOfficerSystem.cs; scripts/bridge/SimBridge.FOManager.cs; scripts/bridge/SimBridge.Faction.cs |
+| GATE.T66.FO.SILENCE_FILL.001 | DONE | Reduce FO max silence gap 131-270→<80 decisions. Add decision-count trigger alongside tick-based cadence. New ambient lines for travel phases. Blocks: DOCK_RELIABILITY. Hash-affecting. Core T2. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/FirstOfficerSystem.cs; SimCore/Content/FirstOfficerContentV0.cs; SimCore/Tweaks/AdaptationTweaksV0.cs |
+| GATE.T66.PACING.DEAD_ZONE_INJECT.001 | DONE | Inject mid-session reward events to break dead zones (d480-720). AdaptationFragmentSystem triggers when event drought >40 decisions. Target: 0 dead zones >50 decisions. Blocks: SILENCE_FILL. Hash-affecting. Core T2. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/AdaptationFragmentSystem.cs; SimCore/Content/AdaptationFragmentContentV0.cs; SimCore/Tweaks/AdaptationTweaksV0.cs |
+| GATE.T66.COMBAT.PIRATE_THREAT.001 | DONE | Increase starter pirate damage so hull drops below 90%. Fix valence monotone (hull_min=100%→<90%). Blocks: DEAD_ZONE_INJECT. Hash-affecting. Core T2. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/NpcFleetCombatSystem.cs; SimCore/Tweaks/CombatTweaksV0.cs; SimCore/Tweaks/ThreatTweaksV0.cs |
+| GATE.T66.COMBAT.FIGHT_EXTEND.001 | DONE | Extend combat to 3-4 volleys minimum. Reduce player DPS or increase pirate HP. Blocks: PIRATE_THREAT. Hash-affecting. Core T2. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/NpcFleetCombatSystem.cs; SimCore/Tweaks/CombatDepthTweaksV0.cs |
+| GATE.T66.SPATIAL.DARK_SYSTEM_FIX.001 | DONE | Fix LOST_PLAYER in dark systems: ambient starfield markers, system boundary ring, faint grid overlay at flight altitude. Blocks: VERIFY_PROBES. Bridge T2. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/GalaxyView.cs; scripts/view/GalaxyView.LocalSystem.cs |
+| GATE.T66.SPATIAL.SYSTEM_IDENTITY.001 | DONE | Faction visual identity: station accent colors by owner faction, star tint variation per system type. Blocks: DARK_SYSTEM_FIX. Bridge T2. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/GalaxyView.cs; scripts/view/GalaxyView.LocalSystem.cs; scripts/bridge/SimBridge.Faction.cs |
+| GATE.T66.PERF.FPS_OPTIMIZE.001 | DONE | Implement FPS optimizations from profiling: LOD, culling, particle reduction, draw call batching. Target: min FPS >= 30. Blocks: FPS_PROFILE + SYSTEM_IDENTITY. Bridge T3. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/core/game_manager.gd; scripts/view/GalaxyView.cs; scripts/view/GalaxyView.LocalSystem.cs |
+| GATE.T66.PROOF.VERIFY_RERUN.001 | DONE | Re-run fixed verification bot (headless + visual, 37 probes). Target: >=30/37 resolved. Blocks: FIGHT_EXTEND + SYSTEM_IDENTITY + FPS_OPTIMIZE. Bridge T3. Milestone: REGRESSION_ANCHOR. Proof: `dotnet build` | scripts/tests/test_verify_issues_v0.gd; scripts/tools/Run-VerifyIssues.ps1 |
+| GATE.T66.PROOF.EXPERIENCE_RERUN.001 | DONE | Re-run experience bot multi-seed. Target: grind_score<3.0, route_rpt<50, 0 dead zones, crossings>0. Blocks: FIGHT_EXTEND. Bridge T3. Proof: `dotnet build` | scripts/tests/test_fh_experience_v0.gd; scripts/tools/Run-ExperienceBot.ps1 |
+| GATE.T66.PROOF.FH_AUDIT.001 | DONE | Run /audit first-hour (fh_9). Produce fh_8→fh_9 delta. Target: 0 CRITICAL, <=3 MAJOR, Goal avg >=4.0. Supersedes T41.PROOF, T52.EVAL, T64.PROOF, X.EVAL.FH_DEPTH_PROOF. Blocks: VERIFY_RERUN + EXPERIENCE_RERUN. Docs T3. Milestone: REGRESSION_ANCHOR. Proof: `Run-FHBot.ps1` | scripts/tools/Run-FHBot.ps1; scripts/tools/Run-ExperienceBot.ps1 |
+| GATE.T66.EVAL.VISUAL_PROOF.001 | DONE | Visual mode proof: screenshot evidence for lane gates, keybind hints, toast colors, warp speed lines, heading indicator, module feedback. Blocks: SYSTEM_IDENTITY + FPS_OPTIMIZE. Bridge T3. Milestone: HEADLESS_PROOF. Proof: `dotnet build` | scripts/tests/visual_sweep_bot_v0.gd; scripts/tools/Run-Screenshot.ps1 |
+| GATE.X.HYGIENE.EPIC_REVIEW.067 | DONE | Audit epic statuses vs completed gates. Close T52.AUDIT_FIXES if all T66 gates pass. Remove 7 superseded carry-forward gates. Recommend T67 anchor. Blocks: FH_AUDIT. Docs T3. Proof: `Run-Tests.ps1 -Filter "RoadmapConsistency"` | docs/54_EPICS.md; docs/55_GATES.md |
+
+Execution plan:
+- Tier 1 Core (hash chain, sequential): GRIND_REDUCTION → MARGIN_FLOOR → EXPLORATION_INCENTIVE. Update golden hashes after each.
+- Tier 1 Bridge (2 parallel agents): Agent A (VERIFY_PROBES — test_verify_issues_v0.gd), Agent B (EXPERIENCE_CALIBRATE — test_fh_experience_v0.gd).
+- Tier 1 Docs (2 parallel agents): Agent C (REPO_HEALTH.067), Agent D (FPS_PROFILE — investigation).
+- Tier 2 Core (hash chain, sequential, continues from T1): DOCK_RELIABILITY → SILENCE_FILL → DEAD_ZONE_INJECT → PIRATE_THREAT → FIGHT_EXTEND.
+- Tier 2 Bridge (sequential, shared GalaxyView files): DARK_SYSTEM_FIX → SYSTEM_IDENTITY.
+- Tier 3 Bridge (sequential per deps): FPS_OPTIMIZE → VERIFY_RERUN, EXPERIENCE_RERUN, VISUAL_PROOF.
+- Tier 3 Docs (sequential per deps): FH_AUDIT → EPIC_REVIEW.067.
+- File conflict groups: GalaxyView.cs (DARK_SYSTEM_FIX + SYSTEM_IDENTITY + FPS_OPTIMIZE — sequential chain). NpcFleetCombatSystem.cs (PIRATE_THREAT + FIGHT_EXTEND — sequential chain).
+
+## T67 — First-Hour Quality Fixes (EPIC.T52.AUDIT_FIXES.V0)
+
+Targeting 9 CONFIRMED issues from fh_10 audit verification. Removes 11 superseded carry-forward gates. Closes EPIC.T52.AUDIT_FIXES.V0 and EPIC.S7.FO_TRADE_MANAGER.V0.
+
+| Gate | Status | Description | Evidence |
+|------|--------|-------------|----------|
+| GATE.X.HYGIENE.REPO_HEALTH.068 | DONE | T67 health baseline: full test suite, golden hash stability, warning scan. Docs T1. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release` | SimCore.Tests/SimCore.Tests.csproj; scripts/tools/Run-AuditQuick.ps1 |
+| GATE.T67.BOT.VFY_COMBAT.001 | DONE | VFY bot uses ResolveCombatV0 for real combat instead of ForceIncrement. Added combat_one_shot and combat_round_avg probes. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/tests/test_verify_issues_v0.gd |
+| GATE.T67.BOT.VFY_FO.001 | DONE | VFY bot detects "FO never spoke" as UNCONFIRMED. fo_silence_decisions probe reports total decisions as gap when fo_line_count=0. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/tests/test_verify_issues_v0.gd |
+| GATE.T67.BOT.FH_CALIBRATE.001 | DONE | FH bot NPC visibility uses SimCore fallback (77 fleets), explore depth downgraded from hard assert to warn. Prevents false positives #10 and #15. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T67.EVAL.DESIGN_RESEARCH.001 | DONE | Compile game design research findings (route grind, economy sinks, FO dialogue, combat loot) into design reference doc. Industry benchmarks: Elite BGS demand decay, EVE 4-6% transaction tax, Hades 20K+ dialogue lines, FTL guaranteed scrap. Docs T1. Proof: file exists | reports/audit/fh_10/verification_report.md; docs/design/ |
+| GATE.T67.ECON.ROUTE_DECAY.001 | DONE | Exponential route dampening: increase RecentTradeDampenBps 2000→4000, reduce DecayTicks 250→150, exponential penalty scaling after 5+ repeats. Target: route_diversity>0.3, route_repeat_max<15. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/MarketSystem.cs; SimCore/Tweaks/MarketTweaksV0.cs |
+| GATE.T67.FO.DOCK_GREETING.001 | DONE | Guarantee FO fires greeting at first dock regardless of tutorial state. Add pre-promotion fallback greeting or early-promotion check. Target: fo_lines_at_first_dock>0. Blocks: ROUTE_DECAY. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/FirstOfficerSystem.cs; SimCore/Tweaks/NarrativeTweaksV0.cs |
+| GATE.T67.COMBAT.SHIELD_GRACE.001 | DONE | Shield grace period: first 2 rounds shields absorb all damage. Damage cap 33% max hull per round. Attrition escalation +25%/round after round 6. Target: <30% one-shot, avg rounds>=3, max rounds<=8. Blocks: DOCK_GREETING. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/NpcFleetCombatSystem.cs; SimCore/Tweaks/CombatDepthTweaksV0.cs |
+| GATE.T67.ECON.SINK_UPKEEP.001 | DONE | Shuttle upkeep ~50cr/cycle + docking fee 15-25cr. Per design philosophy: costs as investment, NOT time pressure. Target: sink_faucet>0.05. Blocks: SHIELD_GRACE. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/FleetUpkeepSystem.cs; SimCore/Tweaks/FleetUpkeepTweaksV0.cs |
+| GATE.T67.PACING.STREAK_BREAKER.001 | DONE | After 15+ consecutive same-action-type, trigger FO ambient observation or market event. Break monotone streaks. Target: longest_streak<20. Blocks: SINK_UPKEEP. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/AdaptationFragmentSystem.cs; SimCore/Tweaks/NarrativeTweaksV0.cs |
+| GATE.T67.ECON.MARGIN_CURVE.001 | DONE | Inverted-U margin curve: generous early → tight mid → wider late. Dampening decays faster for experienced traders (node visits>8). Target: late margins within 20% of early. Blocks: STREAK_BREAKER. Hash-affecting. Core T2. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/MarketSystem.cs; SimCore/Tweaks/MarketTweaksV0.cs; SimCore/Tweaks/CompetenceTweaksV0.cs |
+| GATE.T67.FO.SILENCE_DECISIONS.001 | DONE | Track player decisions since last FO line. After 25 decisions with no FO line, force ambient observation. Hard floor 15-20 decisions. Inspired by Valve Response System 15-20s hard floor. Blocks: MARGIN_CURVE. Hash-affecting. Core T2. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/FirstOfficerSystem.cs; SimCore/Tweaks/NarrativeTweaksV0.cs |
+| GATE.T67.COMBAT.LOOT_FLOOR.001 | DONE | Guaranteed minimum salvage (5-15cr) on every kill. Reduce PityThreshold 5→3. Inspired by FTL guaranteed scrap, Destiny pity timer. Target: loot_rate>60%. Blocks: SILENCE_DECISIONS. Hash-affecting. Core T2. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/NpcFleetCombatSystem.cs; SimCore/Tweaks/LootTweaksV0.cs |
+| GATE.T67.FO.AMBIENT_CONTENT.001 | DONE | Add 15-20 new ambient FO lines: system observations, market commentary, navigation hints. 70/30 reactive/proactive split per Hades model. Blocks: LOOT_FLOOR. Hash-affecting. Core T2. Proof: `dotnet test --filter "Determinism"` | SimCore/Content/FirstOfficerContentV0.cs; SimCore/Systems/FirstOfficerSystem.cs |
+| GATE.T67.ECON.LATE_GOODS.001 | DONE | Unlock 2-3 high-value trade goods after 8+ unique nodes visited. Wider price variance for late goods. Prevents margin decline from exhausting existing goods. Blocks: AMBIENT_CONTENT. Hash-affecting. Core T2. Proof: `dotnet test --filter "Determinism"` | SimCore/Gen/MarketInitGen.cs; SimCore/Tweaks/CatalogTweaksV0.cs |
+| GATE.T67.PERF.FPS_OPTIMIZE.001 | DONE | Profile + fix FPS bottleneck in visual mode. Continue T66 FPS work (12→30+ target). Bridge T2. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/core/game_manager.gd; scripts/view/ |
+| GATE.T67.PROOF.VFY_RERUN.001 | DONE | Rerun VFY bot after all T67 core fixes. Target: route_diversity>0.3, economy_sinks>0.05, combat_one_shot<30%, loot_rate>60%, fo_dock_greeting>0. Blocks: LATE_GOODS. Docs T3. Milestone: HEADLESS_PROOF. Proof: `Run-VerifyIssues.ps1` | scripts/tests/test_verify_issues_v0.gd; scripts/tools/Run-VerifyIssues.ps1 |
+| GATE.T67.PROOF.EXPERIENCE_RERUN.001 | DONE | Rerun experience bot 5-seed sweep. Target: 0 CRITICAL, <=3 MAJOR, grind_score<1.0, sink_faucet>0.05. Blocks: VFY_RERUN. Docs T3. Proof: `Run-ExperienceBot.ps1 -Sweep` | scripts/tests/playthrough_bot_v0.gd; scripts/tools/Run-ExperienceBot.ps1 |
+| GATE.T67.PROOF.FH_AUDIT.001 | DONE | Full first-hour audit (fh_11). Produce fh_10→fh_11 delta. Target: 0 CRITICAL, <=3 MAJOR, Goal avg>=3.5. Supersedes all prior audit gates. Blocks: EXPERIENCE_RERUN. Docs T3. Milestone: REGRESSION_ANCHOR. Proof: `/audit first-hour` | scripts/tools/Run-FHBot.ps1; scripts/tools/Run-ExperienceBot.ps1 |
+| GATE.X.HYGIENE.EPIC_REVIEW.068 | DONE | Audit epic statuses. Close EPIC.T52.AUDIT_FIXES.V0 and EPIC.S7.FO_TRADE_MANAGER.V0. Mark 11 carry-forward gates SUPERSEDED. Recommend T68 anchor. Blocks: FH_AUDIT. Docs T3. Proof: `Run-Tests.ps1 -Filter "RoadmapConsistency"` | docs/54_EPICS.md; docs/55_GATES.md |
+
+Execution plan:
+- Tier 1 Core (hash chain, sequential): ROUTE_DECAY → DOCK_GREETING → SHIELD_GRACE → SINK_UPKEEP → STREAK_BREAKER. Update golden hashes after each.
+- Tier 1 Bridge (3 parallel, already done): VFY_COMBAT, VFY_FO, FH_CALIBRATE.
+- Tier 1 Docs (2 parallel): REPO_HEALTH.068, DESIGN_RESEARCH.
+- Tier 2 Core (hash chain, sequential, continues from T1): MARGIN_CURVE → SILENCE_DECISIONS → LOOT_FLOOR → AMBIENT_CONTENT → LATE_GOODS.
+- Tier 2 Bridge: FPS_OPTIMIZE (independent).
+- Tier 3 Docs (sequential per deps): VFY_RERUN → EXPERIENCE_RERUN → FH_AUDIT → EPIC_REVIEW.068.
+- File conflict groups: MarketSystem.cs (ROUTE_DECAY → MARGIN_CURVE — cross-tier chain). FirstOfficerSystem.cs (DOCK_GREETING → SILENCE_DECISIONS → AMBIENT_CONTENT — cross-tier chain). NpcFleetCombatSystem.cs (SHIELD_GRACE → LOOT_FLOOR — cross-tier chain).
+
+## D. Tranche 68 — "First-Hour Quality Pass" (EPIC.T68.FH_QUALITY.V0)
+
+Driven by fh_12 audit findings. 20 gates: 3 retroactive (fh_12 fixes already applied), 5 new core (route grind, margins, FO content, sinks, pacing), 6 bridge/VFX (combat feedback, credit flash, keybinds, toasts, lanes, FPS), 6 docs/proof (health, content validator, VFY/EXP/FH reruns, epic review).
+
+| Gate | Status | Description | Evidence |
+|------|--------|-------------|----------|
+| GATE.T68.COMBAT.RESPAWN_STATS.001 | DONE | Retroactive: ProcessRespawn derives full ship class via FleetPopulationTweaksV0.PickShipClass + ShipClassContentV0.GetById. Sets hull, shield, fuel, zone armor, weapon slot. combat_one_shot 60%->0%, loot_rate 40%->100%. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/NpcFleetCombatSystem.cs; SimCore/Tweaks/CombatDepthTweaksV0.cs |
+| GATE.T68.FO.SILENCE_CONTENT.001 | DONE | Retroactive: 48 dialogue entries (30 SILENCE_BREAK + 18 MONOTONE_STREAK, 3 archetypes). SilenceBreakMaxCount 24->10, AmbientObsMaxCount 24->12. max_silence 396->139, FO lines +63%. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Content/Data/fo_dialogue_v0.json; SimCore/Tweaks/NarrativeTweaksV0.cs; SimCore/Content/FirstOfficerContentV0.cs |
+| GATE.T68.ECON.SINK_PARITY.001 | DONE | Retroactive: PlayerArriveCommand charges transit fees and registers ArrivalsThisTick on teleport. VFY sink_faucet 0.037->0.061. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Commands/PlayerArriveCommand.cs; SimCore/Systems/FleetUpkeepSystem.cs |
+| GATE.X.HYGIENE.REPO_HEALTH.069 | DONE | T68 health baseline: full test suite, golden hash stability, warning scan. Docs T1. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release` | SimCore.Tests/SimCore.Tests.csproj; scripts/tools/Run-AuditQuick.ps1 |
+| GATE.T68.VFX.COMBAT_FEEDBACK.001 | DONE | Combat VFX: damage flash, vignette overlay, screen shake, kill banner. All absent per fh_12 verification. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/vfx/hitstop.gd; scripts/vfx/shield_ripple.gd; scripts/ui/hud.gd; scripts/core/game_manager.gd |
+| GATE.T68.VFX.CREDIT_FLASH.001 | DONE | Credit counter animation on sell: flash green on profit, pulse on large trades. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/ui/hud.gd; scripts/ui/hero_trade_menu.gd |
+| GATE.T68.UI.KEYBIND_HINTS.001 | DONE | Keybind hints in HUD at boot (WASD, E, Tab/M). Fade after 5 min or first dock. 7 Commandments: 'Never lost for 30s'. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/ui/hud.gd; scripts/core/game_manager.gd |
+| GATE.T68.UI.TOAST_TYPES.001 | DONE | Toast type color/icon: FO=blue, combat=red, trade=green, system=yellow. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/ui/hud.gd; scripts/core/game_manager.gd |
+| GATE.T68.SPATIAL.LANE_3D.001 | DONE | Lane/gate visibility in 3D system view. LaneLine/LaneGate nodes with directional glow. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/vfx/gate_vortex.gd; scripts/core/game_manager.gd; scripts/ui/hud.gd |
+| GATE.T68.ECON.ROUTE_DAMPEN_V2.001 | DONE | Per-good dampening, steeper exponential after 3+ repeats, first-visit exploration bonus. Target: diversity>0.3, route_repeat_max<15, grind_score<5.0. Hash-affecting. Core T2. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/MarketSystem.cs; SimCore/Tweaks/MarketTweaksV0.cs |
+| GATE.T68.ECON.MARGIN_CURVE_V2.001 | DONE | Fix -64% competence decline. Wider late-game price variance, faster dampening decay on new systems. Combine with ROUTE_DAMPEN_V2 agent. Hash-affecting. Core T2. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/MarketSystem.cs; SimCore/Tweaks/MarketTweaksV0.cs; SimCore/Gen/MarketInitGen.cs |
+| GATE.T68.FO.AMBIENT_EXPAND.001 | DONE | 50+ new FO ambient lines: system, market, navigation, faction observations. Target: max_silence<50, content_exhausted_at>700. Hash-affecting. Core T2. Proof: `dotnet test --filter "Determinism"` | SimCore/Content/Data/fo_dialogue_v0.json; SimCore/Content/FirstOfficerContentV0.cs; SimCore/Systems/FirstOfficerSystem.cs; SimCore/Tweaks/NarrativeTweaksV0.cs |
+| GATE.T68.ECON.PERCENTAGE_SINKS.001 | DONE | 2-3% transaction tax on trades (EVE model). Tax visible in trade panel. Target: sink_faucet>0.05 at 720 decisions. Hash-affecting. Core T2. Proof: `dotnet test --filter "Determinism"` | SimCore/Commands/BuyCommand.cs; SimCore/Commands/SellCommand.cs; SimCore/Tweaks/FleetUpkeepTweaksV0.cs |
+| GATE.T68.PACING.EVENT_INTERRUPTS.001 | DONE | Market events/encounter spawns after 20+ consecutive same actions. Break 120-action monotone. Target: longest_streak<30. Hash-affecting. Core T2. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/AdaptationFragmentSystem.cs; SimCore/Systems/MarketSystem.cs; SimCore/Tweaks/NarrativeTweaksV0.cs |
+| GATE.T68.PERF.FPS_V2.001 | DONE | FPS optimization pass 2: _process culling, particle budget, LOD distance, shader reduction. Target: min FPS>=30. Bridge T2. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/core/game_manager.gd; scripts/ui/hud.gd |
+| GATE.T68.EVAL.CONTENT_COMPLETENESS.001 | DONE | C# test: every FO trigger token in code has >=1 matching entry in fo_dialogue_v0.json. Prevents future content gaps. Docs T2. Proof: `dotnet test --filter "ContentCompleteness"` | SimCore.Tests/Invariants/RuntimeFileContractTests.cs; SimCore/Content/Data/fo_dialogue_v0.json; SimCore/Systems/FirstOfficerSystem.cs |
+| GATE.T68.PROOF.VFY_RERUN.001 | DONE | Rerun VFY bot after T68 core fixes. Target: diversity>0.3, sinks>0.05, one_shot<5%, silence<50, streak<30. Docs T3. Milestone: HEADLESS_PROOF. Proof: `Run-VerifyIssues.ps1` | scripts/tests/test_verify_issues_v0.gd; scripts/tools/Run-VerifyIssues.ps1 |
+| GATE.T68.PROOF.EXPERIENCE_RERUN.001 | DONE | Rerun experience bot 5-seed sweep. Target: 0 CRITICAL, <=3 MAJOR, grind<3.0, sinks>0.05, silence<50. Docs T3. Proof: `Run-ExperienceBot.ps1 -Sweep` | scripts/tests/playthrough_bot_v0.gd; scripts/tools/Run-ExperienceBot.ps1 |
+| GATE.T68.PROOF.FH_AUDIT.001 | DONE | First-hour audit fh_13. fh_12->fh_13 delta. Target: 0 CRITICAL, <=3 MAJOR, Goal avg>=4.0. Docs T3. Milestone: REGRESSION_ANCHOR. Proof: `/audit first-hour` | scripts/tools/Run-FHBot.ps1; scripts/tools/Run-ExperienceBot.ps1; scripts/tools/Run-VerifyIssues.ps1 |
+| GATE.X.HYGIENE.EPIC_REVIEW.069 | DONE | Audit epic statuses. Close EPIC.T68.FH_QUALITY.V0 if all gates DONE. Recommend T69 anchor. Docs T3. Proof: `Run-Tests.ps1 -Filter "RoadmapConsistency"` | docs/54_EPICS.md; docs/55_GATES.md |
+
+Execution plan:
+- Tier 1 Core (retroactive hash chain, sequential): RESPAWN_STATS → SILENCE_CONTENT → SINK_PARITY. Verify existing fixes pass determinism tests.
+- Tier 1 Bridge (5 parallel): COMBAT_FEEDBACK, CREDIT_FLASH, KEYBIND_HINTS, TOAST_TYPES, LANE_3D.
+- Tier 1 Docs: REPO_HEALTH.069.
+- Tier 2 Core (new work hash chain, sequential): ROUTE_DAMPEN_V2 → MARGIN_CURVE_V2 (combine in one agent, shared MarketSystem.cs) → AMBIENT_EXPAND → PERCENTAGE_SINKS → EVENT_INTERRUPTS.
+- Tier 2 Bridge: FPS_V2 (independent).
+- Tier 2 Docs: CONTENT_COMPLETENESS (independent).
+- Tier 3 Docs (sequential per deps): VFY_RERUN → EXPERIENCE_RERUN → FH_AUDIT → EPIC_REVIEW.069.
+- File conflict groups: MarketSystem.cs (ROUTE_DAMPEN_V2 + MARGIN_CURVE_V2 — same agent). FirstOfficerSystem.cs + fo_dialogue_v0.json (AMBIENT_EXPAND only in T2). hud.gd (CREDIT_FLASH, KEYBIND_HINTS, TOAST_TYPES — 3 parallel agents OK if different functions).
+
+### T69 "First-Hour Verification Pass" (EPIC.T69.FH_VERIFICATION.V0)
+
+fh_14 audit verification: VFY bot improvements + targeted SimCore tuning for 9 CONFIRMED issues.
+All gates DONE in single session.
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.T69.ECON.ROUTE_DIVERSITY_V3.001 | DONE | Route dampening V3: RecentTradeDecayTicks 80→50, ExponentialPenaltyBpsPerSq 1000→2000 bps/sq^2. Targets diversity>0.3, route_repeat_max<15. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Tweaks/MarketTweaksV0.cs |
+| GATE.T69.ECON.COMPETENCE_V3.001 | DONE | Competence margin V3: ExperiencedDampenDecayMultiplier 5→10 (routes recover in ~5 ticks), LateGameVarianceBonusBps 5000→7000 (70% price variance). Targets margin_decline<20%. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Tweaks/MarketTweaksV0.cs |
+| GATE.T69.ECON.SINK_TAX_V3.001 | DONE | Economy sinks V3: TradeTaxBps 250→350 (3.5%). Compensates for safety net reducing flat fee sinks. Targets sink_faucet>0.05. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Tweaks/FleetUpkeepTweaksV0.cs |
+| GATE.T69.PACING.STREAK_V2.001 | DONE | Streak breaker V2: MonotoneStreakThreshold 15→10, EventInterruptStreakThreshold 20→15. FO comments at 10 consecutive same actions, market perturbation at 15. Targets longest_streak<30. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Tweaks/NarrativeTweaksV0.cs |
+| GATE.T69.BOT.VFY_V3.001 | DONE | VFY bot V3: FO promotion via PromoteFirstOfficerV0("Analyst"), 3-method FO tracking (HUD events + dialogue_count polling + pending line consumption), MAX_FRAMES 5400→9000, play 100→200 decisions, fo_content_exhaustion probe, is_instance_valid guards. Fixes FO silence probe (0→152 lines). Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/tests/test_verify_issues_v0.gd; scripts/tools/Run-VerifyIssues.ps1 |
+| GATE.T69.TEST.SAFETY_NET_COMPAT.001 | DONE | Test adaptation: FleetUpkeepSystemTests use dreadnought (2500 upkeep > 500 safety net) instead of corvette at credits=0. Golden replay hash updated for T69 tweaks. Balance baseline regenerated. All 1599 tests pass. Core T1. Proof: `dotnet test --filter "FleetUpkeepSystem"` | SimCore.Tests/Systems/FleetUpkeepSystemTests.cs; SimCore.Tests/GoldenReplayTests.cs; docs/tweaks/balance_baseline_v0.json |
+| GATE.T69.PROOF.FH_AUDIT.001 | DONE | First-hour audit fh_14: VFY bot confirmed 9 issues, T69 core tweaks applied, all tests pass. Docs T2. Proof: `dotnet test -c Release --nologo -v q` | reports/audit/ |
+| GATE.X.HYGIENE.EPIC_REVIEW.070 | DONE | Epic review: close EPIC.T69.FH_VERIFICATION.V0 (8/8 gates DONE). Close EPIC.T52.AUDIT_FIXES.V0 (fully superseded by T67+T68). Docs T2. Proof: `Run-Tests.ps1 -Filter "RoadmapConsistency"` | docs/54_EPICS.md; docs/55_GATES.md |
+
+### T70 — Exploration Danger Gradient & Fundamental Fixes (21 gates)
+
+Three-layer tranche: Tier 1 fixes broken fundamentals (market volatility, price floors, FO LRU, discoveries, combat juice). Tier 2 builds the travel danger gradient (threat levels, NPC scaling, margin scaling, FO dialogue, lane events, galaxy viz). Tier 3 validates with contract tests and first-hour re-audit.
+
+New epic: EPIC.T70.DANGER_GRADIENT.V0. Design doc: docs/design/travel_danger_gradient_v0.md.
+
+Execution plan:
+- Tier 1 (4 parallel streams): Core hash chain (gates 1-5 sequential), Bridge (gates 6-7 parallel), Docs (REPO_HEALTH.070).
+- Tier 2 (3 parallel streams): Core hash chain (NODE_THREAT_LEVEL → NPC_SCALING → MARGIN_SCALING → FO_DIALOGUE → LANE_EVENTS → LOOT_ELITE sequential), Bridge (BRIDGE_QUERY → GALAXY_VIZ sequential).
+- Tier 3 (3 parallel streams): Core (DISCOVERY_BY_TL → CONTRACT_TESTS), Docs (FH_AUDIT, EPIC_REVIEW, DESIGN_REVIEW parallel).
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.T70.ECON.MARKET_VOLATILITY.001 | TODO | Per-trade price drift: buy depletes supply (price rises by VolatilityShiftBps), sell adds supply (price drops). MarketTweaksV0 gets VolatilityShiftBps, MaxVolatilityDriftBps. Root cause of route grind (backtrack 96.5%, route_repeat 26-29). Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/MarketSystem.cs; SimCore/Tweaks/MarketTweaksV0.cs; SimCore.Tests/Systems/MarketPublishCadenceTests.cs |
+| GATE.T70.ECON.PRICE_FLOOR.001 | TODO | MarketInitGen price floor: no good buy price < production cost. Fixes munitions 2cr exploit (20,800% margins). CatalogTweaksV0 gets MinBuyPriceFloorBps. Target: max margin < 500%. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Gen/MarketInitGen.cs; SimCore/Tweaks/CatalogTweaksV0.cs; SimCore.Tests/GoldenReplayTests.cs |
+| GATE.T70.FO.LRU_TOKEN.001 | TODO | FO ProcessSilenceFallback LRU fix: track last-used index per pool, never repeat within window of pool.Length/3. Fixes 89.7% dead zone caused by tick-modulo landing on same 2-3 tokens. Hash-affecting. Core T1. Proof: `dotnet test --filter "FirstOfficer"` | SimCore/Systems/FirstOfficerSystem.cs; SimCore.Tests/Systems/FirstOfficerTests.cs |
+| GATE.T70.EXPLORE.DISCOVERY_SEED.001 | TODO | DiscoverySeedGen places 1-2 anomaly fragments within 3-4 hops of starter. NarrativePlacementGen ensures breadcrumb chain. Fixes discoveries_seeded=0 on all 5 seeds. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Gen/DiscoverySeedGen.cs; SimCore/Gen/NarrativePlacementGen.cs; SimCore/Gen/GalaxyGenerator.cs |
+| GATE.T70.ECON.MARGIN_DECAY.001 | TODO | Reduce MaxDampenBps to prevent price equalization. Experienced trader decay multiplier recovers faster. Fixes competence margin decline -60 to -81%. Hash-affecting. Core T1. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/MarketSystem.cs; SimCore/Tweaks/MarketTweaksV0.cs |
+| GATE.T70.UI.COMBAT_JUICE.001 | TODO | GDScript VFX: hull damage → red flash + screen shake. Kill → vignette pulse. Combat entry → banner. Credits flash on loot. All 5 VFX channels absent (juice 28/100). Target: 50+. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/ui/hud.gd; scripts/view/GalaxyView.cs |
+| GATE.T70.UI.TOAST_TYPES.001 | TODO | Color-coded toast types: FO=blue, alert=red, milestone=gold, system=grey. Remove bracket prefix tags. Toast manager gets ToastType enum. Fixes DEVELOPER_UI flag. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/ui/hud.gd; scripts/ui/toast_manager.gd |
+| GATE.X.HYGIENE.REPO_HEALTH.070 | TODO | T70 health baseline: full test suite, golden hash stability, dead code scan, warning scan. Docs T1. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release` | SimCore.Tests/SimCore.Tests.csproj; scripts/tools/Run-AuditQuick.ps1 |
+| GATE.T70.THREAT.NODE_THREAT_LEVEL.001 | TODO | Add ThreatLevel (int 0-5) to Node entity. BFS hop count from Haven (or nearest faction capital). HopsPerThreatLevel=2 in ThreatTweaksV0. Recompute on Haven discovery. GalaxyGenerator calls ComputeThreatLevels. Hash-affecting. Core T2. Proof: `dotnet test --filter "Determinism"` | SimCore/Entities/Node.cs; SimCore/Gen/GalaxyGenerator.cs; SimCore/Tweaks/ThreatTweaksV0.cs; SimCore.Tests/GoldenReplayTests.cs |
+| GATE.T70.THREAT.NPC_SCALING.001 | TODO | FleetPopulationTweaksV0 threat-aware ship class. TL 0-1: no pirates. TL 2: Scout. TL 3: Raider 1-2. TL 4: Marauder 2-3 (won't flee). TL 5: Dreadnought (rare loot). NpcFleetCombatSystem reads node TL. Hash-affecting. Core T2. Blocks: NODE_THREAT_LEVEL. Proof: `dotnet test --filter "Determinism"` | SimCore/Tweaks/FleetPopulationTweaksV0.cs; SimCore/Systems/NpcFleetCombatSystem.cs; SimCore/Tweaks/ThreatTweaksV0.cs |
+| GATE.T70.THREAT.MARGIN_SCALING.001 | TODO | MarketInitGen seeds higher margins at higher TL. TL 0-1: base. TL 2-3: +500bps. TL 4-5: +2000bps. MarginBonusBps array in ThreatTweaksV0. Risk premium for dangerous space. Hash-affecting. Core T2. Blocks: NODE_THREAT_LEVEL. Proof: `dotnet test --filter "Determinism"` | SimCore/Gen/MarketInitGen.cs; SimCore/Tweaks/ThreatTweaksV0.cs; SimCore/Tweaks/MarketTweaksV0.cs |
+| GATE.T70.THREAT.FO_DIALOGUE.001 | TODO | FO trigger THREAT_LEVEL_CHANGE. Content for 3 archetypes x 5 transitions (entering TL 2/3/4/5, returning safe). Track player previous TL to fire on change. Hash-affecting. Core T2. Blocks: NODE_THREAT_LEVEL. Proof: `dotnet test --filter "FirstOfficer"` | SimCore/Systems/FirstOfficerSystem.cs; SimCore/Content/FirstOfficerContentV0.cs; SimCore.Tests/Systems/FirstOfficerTests.cs |
+| GATE.T70.THREAT.LANE_EVENTS.001 | TODO | RiskSystem threat-gated events: pirate interdiction (TL 2+), debris field (TL 3+, 5-15% hull damage), distress signal (TL 2+, choice). Events fire on arrival. Rates in ThreatTweaksV0. Hash-affecting. Core T2. Blocks: NODE_THREAT_LEVEL. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/RiskSystem.cs; SimCore/Tweaks/ThreatTweaksV0.cs; SimCore.Tests/Systems/RiskDelayTests.cs |
+| GATE.T70.COMBAT.LOOT_ELITE.001 | TODO | PityThreshold 5→3, guaranteed minimum salvage. TL 4+ elite pirates (Marauder/Dreadnought) drop module components. LootTweaksV0 gets ThreatLevelEliteDropChanceBps. Hash-affecting. Core T2. Blocks: NODE_THREAT_LEVEL. Proof: `dotnet test --filter "NpcFleetCombat"` | SimCore/Systems/NpcFleetCombatSystem.cs; SimCore/Tweaks/LootTweaksV0.cs; SimCore.Tests/Systems/NpcFleetCombatSystemTests.cs |
+| GATE.T70.THREAT.BRIDGE_QUERY.001 | TODO | SimBridge.GetNodeThreatLevelV0(nodeId) → int 0-5. GetThreatAssessmentV0(routeNodeIds) → aggregated danger (max TL, pirate chance, event probs). Used by galaxy map + FO route preview. Bridge T2. Blocks: NODE_THREAT_LEVEL. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/bridge/SimBridge.Haven.cs; SimCore/Entities/Node.cs |
+| GATE.T70.THREAT.GALAXY_VIZ.001 | TODO | Galaxy map nodes color-coded: Green (TL 0) → Yellow (TL 1-2) → Orange (TL 3) → Red (TL 4) → Purple (TL 5). Patrol rings around Haven + faction capitals. Fog on unvisited TL 4+. Bridge T2. Blocks: BRIDGE_QUERY. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/view/GalaxyView.cs; scripts/bridge/SimBridge.Haven.cs; scripts/ui/hud.gd |
+| GATE.T70.EXPLORE.DISCOVERY_BY_TL.001 | TODO | DiscoverySeedGen gates placement by TL: TL 0-1 none, TL 2-3 common fragments, TL 4+ rare/deep. Ensures exploration reward scales with danger. Hash-affecting. Core T3. Blocks: NODE_THREAT_LEVEL + DISCOVERY_SEED. Proof: `dotnet test --filter "Determinism"` | SimCore/Gen/DiscoverySeedGen.cs; SimCore/Tweaks/ThreatTweaksV0.cs |
+| GATE.T70.THREAT.CONTRACT_TESTS.001 | TODO | Contract tests: (1) BFS TL correctness across 5 seeds, (2) margin scaling by TL, (3) NPC ship class by TL, (4) lane event rates by TL. NEW: SimCore.Tests/Systems/ThreatLevelTests.cs. Core T3. Proof: `dotnet test --filter "ThreatLevel"` | NEW: SimCore.Tests/Systems/ThreatLevelTests.cs; SimCore/Tweaks/ThreatTweaksV0.cs; SimCore/Entities/Node.cs |
+| GATE.T70.PROOF.FH_AUDIT.001 | TODO | Re-run /audit first-hour (fh_15). Compare vs fh_14. Validate danger gradient: route diversity, exploration depth, combat by TL, margin scaling. Target: 0 CRITICAL, <=3 MAJOR, Goal avg >= 4.0. Docs T3. Proof: `Run-FHBot.ps1` | reports/audit/; scripts/tools/Run-FHBot.ps1 |
+| GATE.X.HYGIENE.EPIC_REVIEW.071 | TODO | Epic audit: create EPIC.T70.DANGER_GRADIENT.V0, close completed epics, recommend T71 anchor. Docs T3. Blocks: FH_AUDIT. Proof: `Run-Tests.ps1 -Filter "RoadmapConsistency"` | docs/54_EPICS.md; docs/55_GATES.md |
+| GATE.X.EVAL.DANGER_DESIGN_REVIEW.001 | TODO | Design review: validate TDG implementation against design doc. Answer 5 open questions. Document decisions. Docs T3. Proof: `Run-Tests.ps1 -Filter "RoadmapConsistency"` | docs/design/travel_danger_gradient_v0.md; SimCore/Tweaks/ThreatTweaksV0.cs |

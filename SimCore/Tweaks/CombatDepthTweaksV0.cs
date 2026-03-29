@@ -53,5 +53,22 @@ public static class CombatDepthTweaksV0
     // ── GATE.T64.COMBAT.SEED_FLOOR.001: Minimum player damage per combat round ──
     // Ensures even unarmed/poorly-equipped players deal at least this much damage per round
     // against tier-1 NPCs. Prevents 0% kill rate on unlucky seeds (seed 77777: 0/12 kills).
-    public const int MinPlayerDamageFloor = 5;
+    // fh_11: 0 kills across 46 combats — all Flee. Raised 5→15 to guarantee kill within max rounds.
+    public const int MinPlayerDamageFloor = 15;
+
+    // ── GATE.T67.COMBAT.SHIELD_GRACE.001: Shield grace period ──
+    // First N rounds: shields absorb all damage (no hull damage taken).
+    // Compress bimodal distribution: 60% one-shot → target <30% one-shot, avg>=3 rounds.
+    public const int ShieldGraceRounds = 2;         // First 2 rounds = shield phase (no hull damage)
+    // Maximum hull damage per round as percentage of max hull HP (basis points).
+    // Prevents one-shot kills even with high DPS weapons.
+    // fh_11: 33% cap + 12 max rounds caused 100% Flee rate. Raised to 50% (kills in ~6 hull rounds).
+    public const int MaxHullDamagePerRoundBps = 5000; // 50% of max hull per round
+    // Attrition escalation: after this round, damage increases to end long fights.
+    public const int AttritionStartRound = 5;
+    // Attrition bonus per round past AttritionStartRound (bps of base damage).
+    public const int AttritionBonusBpsPerRound = 3000; // +30% per round after round 5
+    // Maximum combat rounds before auto-resolve (prevents infinite fights).
+    // fh_11: 12 rounds too few for starter ship. Raised to 20 for more decisive outcomes.
+    public const int MaxCombatRounds = 20;
 }

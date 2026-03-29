@@ -388,6 +388,10 @@ public partial class SimState
     // Key = "marketId|goodId", value = trade count on this route. New routes get a margin bonus.
     [JsonInclude] public Dictionary<string, int> PlayerRouteNovelty { get; private set; } = new(StringComparer.Ordinal);
 
+    // GATE.T66.ECON.MARGIN_FLOOR.001: Per-station trade count for fresh stock premium.
+    // Key = marketId, value = trade count at this station. First N trades get premium.
+    [JsonInclude] public Dictionary<string, int> PlayerStationTradeCount { get; private set; } = new(StringComparer.Ordinal);
+
     // GATE.T57.PIPELINE.NPC_COMPETITION.001: NPC-discovered profitable routes.
     // Key = routeKey (sourceNode|destNode|goodId), Value = tick when NPC first observed this route.
     // Used to compute margin compression over NpcRouteCompressionStartTick..FullTick.

@@ -86,7 +86,9 @@ public sealed class FleetUpkeepSystemTests
     public void InsufficientCredits_IncrementsDelinquency()
     {
         var state = CreateState();
-        state.PlayerCredits = 0; // Can't afford upkeep
+        // fh_14: Use dreadnought (upkeep 2500) so credits above safety net (500) but below upkeep.
+        state.Fleets["fleet_trader_1"].ShipClassId = "dreadnought";
+        state.PlayerCredits = FleetUpkeepTweaksV0.LowFundsThreshold; // Exactly at threshold, passes safety net
 
         while (state.Tick % FleetUpkeepTweaksV0.UpkeepCycleTicks != 0)
             state.AdvanceTick();
@@ -114,7 +116,9 @@ public sealed class FleetUpkeepSystemTests
     public void DelinquencyPastGrace_DisablesModule()
     {
         var state = CreateState();
-        state.PlayerCredits = 0;
+        // fh_14: Use dreadnought (upkeep 2500) so credits above safety net (500) but below upkeep.
+        state.Fleets["fleet_trader_1"].ShipClassId = "dreadnought";
+        state.PlayerCredits = FleetUpkeepTweaksV0.LowFundsThreshold; // Exactly at threshold, passes safety net
         state.Fleets["fleet_trader_1"].UpkeepDelinquentCycles = FleetUpkeepTweaksV0.GracePeriodCycles + 1;
         state.Fleets["fleet_trader_1"].Slots.Add(new ModuleSlot
         {

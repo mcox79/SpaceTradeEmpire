@@ -4,6 +4,7 @@ using SimCore;
 using SimCore.Commands;
 using SimCore.Entities;
 using SimCore.Systems;
+using SimCore.Tweaks;
 
 namespace SimCore.Tests.Systems;
 
@@ -27,6 +28,10 @@ public sealed class LedgerIntegrityTests
         market.Inventory[Fuel] = InitialStock;
         market.Inventory[Ore] = InitialStock;
         state.Markets[MarketId] = market;
+
+        // Neutralize novelty bonus so price tests are stable.
+        state.PlayerRouteNovelty[$"{MarketId}|{Fuel}"] = Tweaks.MarketTweaksV0.NoveltyDecayTrades;
+        state.PlayerRouteNovelty[$"{MarketId}|{Ore}"] = Tweaks.MarketTweaksV0.NoveltyDecayTrades;
 
         return state;
     }
@@ -98,9 +103,13 @@ public sealed class LedgerIntegrityTests
         Assert.That(state.TransactionLog.Count, Is.EqualTo(1));
         var tx = state.TransactionLog[0];
         // GATE.X.MARKET_PRICING.FEE_WIRE.001: CashDelta includes transaction fee.
+        // GATE.T68.ECON.PERCENTAGE_SINKS.001: CashDelta includes trade tax.
         int grossCost = buyPrice * 3;
         int fee = MarketSystem.ComputeTransactionFeeCredits(state, grossCost);
-        Assert.That(tx.CashDelta, Is.EqualTo(-(grossCost + fee)));
+        int costWithFee = grossCost + fee;
+        int buyTax = FleetUpkeepTweaksV0.TradeTaxBps > 0
+            ? (int)System.Math.Max(1, (long)costWithFee * FleetUpkeepTweaksV0.TradeTaxBps / 10000) : 0;
+        Assert.That(tx.CashDelta, Is.EqualTo(-(costWithFee + buyTax)));
         Assert.That(tx.GoodId, Is.EqualTo(Fuel));
         Assert.That(tx.Quantity, Is.EqualTo(3));
         Assert.That(tx.Source, Is.EqualTo("Buy"));
@@ -119,9 +128,13 @@ public sealed class LedgerIntegrityTests
         Assert.That(state.TransactionLog.Count, Is.EqualTo(1));
         var tx = state.TransactionLog[0];
         // GATE.X.MARKET_PRICING.FEE_WIRE.001: CashDelta has fee deducted from sell revenue.
+        // GATE.T68.ECON.PERCENTAGE_SINKS.001: CashDelta has trade tax deducted.
         int grossValue = sellPrice * 4;
         int fee = MarketSystem.ComputeTransactionFeeCredits(state, grossValue);
-        Assert.That(tx.CashDelta, Is.EqualTo(grossValue - fee));
+        int valueAfterFee = grossValue - fee;
+        int sellTax = FleetUpkeepTweaksV0.TradeTaxBps > 0 && valueAfterFee > 0
+            ? (int)System.Math.Max(1, (long)valueAfterFee * FleetUpkeepTweaksV0.TradeTaxBps / 10000) : 0;
+        Assert.That(tx.CashDelta, Is.EqualTo(valueAfterFee - sellTax));
         Assert.That(tx.GoodId, Is.EqualTo(Fuel));
         Assert.That(tx.Quantity, Is.EqualTo(4));
         Assert.That(tx.Source, Is.EqualTo("Sell"));

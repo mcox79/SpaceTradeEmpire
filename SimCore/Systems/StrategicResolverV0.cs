@@ -97,11 +97,20 @@ public static class StrategicResolverV0
         int totalSalvage = STRUCT_ZERO;
         int roundsPlayed = STRUCT_ZERO;
 
+        // GATE.T67.COMBAT.SHIELD_GRACE.001: Track hull HP at start of each round for damage cap.
+        int aHullMax = aHull;
+        int bHullMax = bHull;
+        int maxRounds = Math.Min(CombatTweaksV0.StrategicMaxRounds, CombatDepthTweaksV0.MaxCombatRounds);
+
         var frames = new List<ReplayFrame>();
 
-        for (int round = STRUCT_FIRST_ROUND; round <= CombatTweaksV0.StrategicMaxRounds; round++)
+        for (int round = STRUCT_FIRST_ROUND; round <= maxRounds; round++)
         {
             int damageThisRound = STRUCT_ZERO;
+
+            // GATE.T67.COMBAT.SHIELD_GRACE.001: Snapshot hull before this round for damage cap.
+            int aHullBefore = aHull;
+            int bHullBefore = bHull;
 
             // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001 + BATTLE_STATIONS.001:
             // Combined damage multiplier = min(heatPct, readinessPct).
@@ -110,6 +119,16 @@ public static class StrategicResolverV0
             int aDamagePct = Math.Min(aHeatPct, fleetA.ReadinessDamagePct);
             int bHeatPct = ComputeHeatDamagePct(bHeat, fleetB.HeatCapacity);
             int bDamagePct = Math.Min(bHeatPct, fleetB.ReadinessDamagePct);
+
+            // GATE.T67.COMBAT.SHIELD_GRACE.001: Attrition escalation after round N.
+            // Damage bonus increases each round past the threshold to prevent stalemates.
+            if (round > CombatDepthTweaksV0.AttritionStartRound)
+            {
+                int attritionRounds = round - CombatDepthTweaksV0.AttritionStartRound;
+                int bonusBps = attritionRounds * CombatDepthTweaksV0.AttritionBonusBpsPerRound;
+                aDamagePct = aDamagePct + aDamagePct * bonusBps / 10000;
+                bDamagePct = bDamagePct + bDamagePct * bonusBps / 10000;
+            }
 
             // ── Fleet A fires all weapons at Fleet B ──
             // A attacks B → B's stance determines which zone gets hit.
@@ -159,6 +178,29 @@ public static class StrategicResolverV0
                     shooterId: "B",
                     shooterZoneArmor: bHasZoneArmor ? bZone : null,
                     targetSpinRpm: fleetA.SpinRpm); // GATE.T60.SPIN.ARMOR_HEAT.001
+            }
+
+            // GATE.T67.COMBAT.SHIELD_GRACE.001: Shield grace — first N rounds, hull damage absorbed.
+            if (round <= CombatDepthTweaksV0.ShieldGraceRounds)
+            {
+                // Restore hull to pre-round value — shields absorb all hull damage.
+                aHull = aHullBefore;
+                bHull = bHullBefore;
+            }
+            else
+            {
+                // GATE.T67.COMBAT.SHIELD_GRACE.001: Hull damage cap — max 33% of max hull per round.
+                int aMaxHullDmg = (int)((long)aHullMax * CombatDepthTweaksV0.MaxHullDamagePerRoundBps / 10000); // STRUCTURAL: 10000 bps
+                if (aMaxHullDmg < 1) aMaxHullDmg = 1; // STRUCTURAL: minimum 1 damage
+                int aHullDmgThisRound = aHullBefore - aHull;
+                if (aHullDmgThisRound > aMaxHullDmg)
+                    aHull = aHullBefore - aMaxHullDmg;
+
+                int bMaxHullDmg = (int)((long)bHullMax * CombatDepthTweaksV0.MaxHullDamagePerRoundBps / 10000); // STRUCTURAL: 10000 bps
+                if (bMaxHullDmg < 1) bMaxHullDmg = 1; // STRUCTURAL: minimum 1 damage
+                int bHullDmgThisRound = bHullBefore - bHull;
+                if (bHullDmgThisRound > bMaxHullDmg)
+                    bHull = bHullBefore - bMaxHullDmg;
             }
 
             // GATE.S7.COMBAT_PHASE2.RADIATOR.001: If aft zone is destroyed, lose radiator bonus.

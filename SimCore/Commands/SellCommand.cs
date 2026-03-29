@@ -59,6 +59,50 @@ public class SellCommand : ICommand
 		int noveltyBps = MarketSystem.GetRouteNoveltyBonusBps(state, MarketId, GoodId);
 		unitPrice = MarketSystem.ApplyNoveltyBonus(unitPrice, noveltyBps, isBuy: false);
 
+		// GATE.T66.ECON.MARGIN_FLOOR.001: Apply fresh stock premium for first trades at station.
+		int freshBps = MarketSystem.GetFreshStockPremiumBps(state, MarketId);
+		if (freshBps > 0)
+			unitPrice = (int)Math.Max(1, (long)unitPrice * (10000 + freshBps) / 10000);
+
+		// GATE.T66.ECON.EXPLORATION_INCENTIVE.001: First-visit station bonus (sell price UP).
+		int firstVisitBps = MarketSystem.GetFirstVisitBonusBps(state, MarketId);
+		if (firstVisitBps > 0)
+			unitPrice = (int)Math.Max(1, (long)unitPrice * (10000 + firstVisitBps) / 10000);
+
+		// GATE.T67.ECON.MARGIN_CURVE.001: Late-game variance bonus for experienced traders.
+		// After visiting 8+ nodes, traders find better arbitrage opportunities (wider spreads).
+		if (state.PlayerStats != null
+			&& state.PlayerStats.NodesVisited >= MarketTweaksV0.ExperiencedTraderNodeThreshold
+			&& MarketTweaksV0.LateGameVarianceBonusBps > 0)
+		{
+			unitPrice = (int)Math.Max(1, (long)unitPrice * (10000 + MarketTweaksV0.LateGameVarianceBonusBps) / 10000);
+		}
+
+		// GATE.T67.ECON.LATE_GOODS.001: Late-game high-value goods premium.
+		// After visiting 8+ nodes, high-tier goods sell at premium at non-producing stations.
+		if (state.PlayerStats != null
+			&& state.PlayerStats.NodesVisited >= MarketTweaksV0.ExperiencedTraderNodeThreshold
+			&& MarketTweaksV0.LateGoodsPremiumBps > 0)
+		{
+			bool isLateGood = false;
+			foreach (var lgId in MarketTweaksV0.LateGameGoodIds)
+			{
+				if (string.Equals(GoodId, lgId, StringComparison.Ordinal))
+				{ isLateGood = true; break; }
+			}
+			if (isLateGood)
+				unitPrice = (int)Math.Max(1, (long)unitPrice * (10000 + MarketTweaksV0.LateGoodsPremiumBps) / 10000);
+		}
+
+		// GATE.T66.ECON.MARGIN_FLOOR.001: Enforce minimum sell margin floor.
+		// Sell price can't drop below (buy_base + MinSellMarginBps%) to prevent negative margins.
+		{
+			int baseSellPrice = market.GetSellPrice(GoodId);
+			int floorPrice = (int)Math.Max(1, (long)baseSellPrice * (10000 + MarketTweaksV0.MinSellMarginBps) / 10000);
+			if (unitPrice < floorPrice)
+				unitPrice = floorPrice;
+		}
+
 		// GATE.X.MARKET_PRICING.REP_WIRE.001: Apply reputation-based price modifier.
 		var factionId = MarketSystem.GetControllingFactionIdForMarket(state, MarketId);
 		int repBps = MarketSystem.GetRepPricingBps(state, factionId);
@@ -81,6 +125,15 @@ public class SellCommand : ICommand
 		// GATE.X.MARKET_PRICING.FEE_WIRE.001: Deduct transaction fee from sell revenue.
 		totalValue -= MarketSystem.ComputeTransactionFeeCredits(state, totalValue);
 		if (totalValue < 0) totalValue = 0;
+
+		// GATE.T68.ECON.PERCENTAGE_SINKS.001: Deduct trade tax from sell revenue.
+		if (FleetUpkeepTweaksV0.TradeTaxBps > 0)
+		{
+			long taxAmount = (long)totalValue * FleetUpkeepTweaksV0.TradeTaxBps / 10000;
+			if (taxAmount < 1 && totalValue > 0) taxAmount = 1;
+			totalValue -= (int)taxAmount;
+			if (totalValue < 0) totalValue = 0;
+		}
 
 		if (!InventoryLedger.TryRemoveCargo(state.PlayerCargo, GoodId, Quantity)) return;
 
@@ -109,6 +162,8 @@ public class SellCommand : ICommand
 		MarketSystem.RecordPlayerTrade(state, MarketId, GoodId);
 		// GATE.T65.ECON.ROUTE_NOVELTY.001: Record trade for novelty tracking.
 		MarketSystem.RecordRouteNovelty(state, MarketId, GoodId);
+		// GATE.T66.ECON.MARGIN_FLOOR.001: Record station trade for fresh stock premium.
+		MarketSystem.RecordStationTrade(state, MarketId);
 
 		// GATE.T61.MARKET.DEPTH_MODEL.001: Consume market depth after trade.
 		MarketSystem.ConsumeDepth(market, Quantity);
@@ -134,5 +189,23 @@ public class SellCommand : ICommand
 		if (string.Equals(GoodId, WellKnownGoodIds.Munitions, StringComparison.Ordinal)
 			|| string.Equals(GoodId, WellKnownGoodIds.Composites, StringComparison.Ordinal))
 			FirstOfficerSystem.TryFireTrigger(state, "FIRST_WAR_GOODS_SALE");
+
+		// GATE.T67.PACING.STREAK_BREAKER.001: Record action type for streak tracking.
+		RecordActionType(state, "sell");
+		// GATE.T67.FO.SILENCE_DECISIONS.001: Increment decision counter for FO silence tracking.
+		if (state.FirstOfficer != null) state.FirstOfficer.DecisionsSinceLastLine++;
+	}
+
+	// GATE.T67.PACING.STREAK_BREAKER.001: Track consecutive same-type actions.
+	private static void RecordActionType(SimState state, string actionType)
+	{
+		if (state.PlayerStats == null) return;
+		if (string.Equals(state.PlayerStats.LastActionType, actionType, StringComparison.Ordinal))
+			state.PlayerStats.ConsecutiveActionStreak++;
+		else
+		{
+			state.PlayerStats.LastActionType = actionType;
+			state.PlayerStats.ConsecutiveActionStreak = 1; // STRUCTURAL: first action of new type
+		}
 	}
 }

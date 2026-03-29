@@ -926,7 +926,7 @@ func _buy_qty_v0(good_id: String, qty: int) -> void:
 		var actual_spent: int = credits_before - credits_after
 		var toast_mgr = get_node_or_null("/root/ToastManager")
 		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
-			toast_mgr.call("show_priority_toast", "Bought %s for %dcr" % [_format_display_name(good_id), actual_spent], "info", 2.0)
+			toast_mgr.call("show_priority_toast", "Bought %s for %dcr" % [_format_display_name(good_id), actual_spent], "trade", 2.0)
 		# L0.1: Flash credits label red (expense) on buy.
 		_flash_hud_credits_v0(false)
 		# GATE.T41.JUICE.TRADE_BUY.001: Credit roll animation (0.5s).
@@ -970,8 +970,8 @@ func _sell_qty_v0(good_id: String, qty: int) -> void:
 			# Trade was rejected by SimCore — don't show success toast.
 			print("DEBUG_SELL|REJECTED|good=%s qty=%d credits_before=%d credits_after=%d market=%s" % [good_id, qty, credits_before, credits_after, _market_node_id])
 			var toast_mgr_fail = get_node_or_null("/root/ToastManager")
-			if toast_mgr_fail and toast_mgr_fail.has_method("show_toast"):
-				toast_mgr_fail.call("show_toast", "Trade failed — try again", 2.0)
+			if toast_mgr_fail and toast_mgr_fail.has_method("show_priority_toast"):
+				toast_mgr_fail.call("show_priority_toast", "Trade failed — try again", "warning", 2.0)
 			_rebuild_rows()
 			return
 		# L0.2: Profit realization — show revenue + realized P/L via cost basis.
@@ -992,11 +992,11 @@ func _sell_qty_v0(good_id: String, qty: int) -> void:
 					profit_text = " (+%dcr profit)" % total_profit
 				elif total_profit < 0:
 					profit_text = " (%dcr loss)" % total_profit
-		var toast_priority: String = "confirm" if profit_text.contains("profit") else "info"
+		var toast_priority: String = "trade"
 		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
 			toast_mgr.call("show_priority_toast", "Sold %d %s for +%dcr%s" % [qty, display_name, actual_revenue, profit_text], toast_priority, 2.5)
 		# L0.1: Flash credits label green (income) on sell.
-		_flash_hud_credits_v0(true)
+		_flash_hud_credits_v0(true, actual_revenue)
 		# GATE.T41.JUICE.TRADE_SELL.001: Credit roll animation (0.5s).
 		_roll_hud_credits_v0(credits_before, credits_after)
 		# GATE.T41.JUICE.TRADE_SELL.001: Profit highlight — floating "+Ncr profit" in green.
@@ -2855,13 +2855,13 @@ func _on_accept_contextual_template(template_id: String) -> void:
 	if result.get("success", false):
 		var toast_mgr = get_node_or_null("/root/ToastManager")
 		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
-			toast_mgr.call("show_priority_toast", "Mission accepted!", "success")
+			toast_mgr.call("show_priority_toast", "Mission accepted!", "confirm")
 		# Rebuild station info to remove accepted template from list.
 		_rebuild_station_info()
 	else:
 		var toast_mgr = get_node_or_null("/root/ToastManager")
 		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
-			toast_mgr.call("show_priority_toast", "Cannot accept mission right now.", "warn")
+			toast_mgr.call("show_priority_toast", "Cannot accept mission right now.", "warning")
 
 
 func _briefing_add_planet_scanner(bridge, planet_info: Dictionary) -> void:
@@ -4446,10 +4446,10 @@ func _get_good_tier(good_id: String) -> int:
 	return int(info.get("tier", 99))
 
 ## Flash the HUD credits label green (profit) or red (expense).
-func _flash_hud_credits_v0(is_profit: bool) -> void:
+func _flash_hud_credits_v0(is_profit: bool, amount: int = 0) -> void:
 	var hud = get_node_or_null("/root/HUD")
 	if hud and hud.has_method("flash_credits_v0"):
-		hud.call("flash_credits_v0", is_profit)
+		hud.call("flash_credits_v0", is_profit, amount)
 
 
 # L0.1: Floating profit label + row highlight after sell.

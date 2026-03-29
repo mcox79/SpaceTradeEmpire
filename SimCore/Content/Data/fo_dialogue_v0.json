@@ -411,6 +411,202 @@
 
     { "trigger": "LATE_INSTABILITY_WARNING", "candidate": "Analyst", "tier": "Mid", "text": "The conflict data just shifted. Border skirmishes are escalating faster than my models predicted. Supply lines to contested systems will tighten \u2014 which means margins on war materials are about to spike. Risk up, but so is profit.", "relationship_delta": 1 },
     { "trigger": "LATE_INSTABILITY_WARNING", "candidate": "Veteran", "tier": "Mid", "text": "I\u2019ve seen this pattern before. Small patrols become blockades. Blockades become shooting wars. The factions are moving to a war footing. We need to decide \u2014 supply one side, profit from both, or steer clear entirely.", "relationship_delta": 1 },
-    { "trigger": "LATE_INSTABILITY_WARNING", "candidate": "Pathfinder", "tier": "Mid", "text": "Feel that tension? The lanes are getting quieter near the borders. Traders pulling back. That\u2019s not peace \u2014 that\u2019s the calm before something breaks. We could ride the edge of it, or find safer waters. Your call.", "relationship_delta": 1 }
+    { "trigger": "LATE_INSTABILITY_WARNING", "candidate": "Pathfinder", "tier": "Mid", "text": "Feel that tension? The lanes are getting quieter near the borders. Traders pulling back. That\u2019s not peace \u2014 that\u2019s the calm before something breaks. We could ride the edge of it, or find safer waters. Your call.", "relationship_delta": 1 },
+
+    { "trigger": "MONOTONE_STREAK_1", "candidate": "Analyst", "tier": "Early", "text": "Captain, I\u2019m noticing a pattern in our operational cadence. Repetition has diminishing returns \u2014 the data suggests diversifying our approach would yield better margins.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_1", "candidate": "Veteran", "tier": "Early", "text": "We\u2019ve been running the same play for a while now. Nothing wrong with discipline, but variety keeps you sharp. Maybe switch things up?", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_1", "candidate": "Pathfinder", "tier": "Early", "text": "Don\u2019t you feel it? The routine setting in. The galaxy has so many paths \u2014 feels like we\u2019re only walking one of them.", "relationship_delta": 0 },
+
+    { "trigger": "MONOTONE_STREAK_2", "candidate": "Analyst", "tier": "Early", "text": "Efficiency metrics are plateauing. When returns flatten, the optimal strategy shifts. There may be unexplored nodes with better price differentials.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_2", "candidate": "Veteran", "tier": "Early", "text": "I\u2019ve served under captains who found a groove and never left it. The good ones always knew when to change course. Just saying.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_2", "candidate": "Pathfinder", "tier": "Early", "text": "There\u2019s a station we haven\u2019t visited in a while. I wonder what\u2019s changed there. Markets shift when you\u2019re not looking.", "relationship_delta": 0 },
+
+    { "trigger": "MONOTONE_STREAK_3", "candidate": "Analyst", "tier": "Early", "text": "Three standard deviations of consistent behavior detected. Statistically, we\u2019re in a local optimum. Breaking pattern could reveal global improvements.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_3", "candidate": "Veteran", "tier": "Early", "text": "You know what they say about foxholes? Even a good one stops being safe if you stay too long. Markets are the same.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_3", "candidate": "Pathfinder", "tier": "Early", "text": "The stars look different from a new angle. Sometimes you need to change your vantage point to see what\u2019s really there.", "relationship_delta": 0 },
+
+    { "trigger": "MONOTONE_STREAK_4", "candidate": "Analyst", "tier": "Mid", "text": "Behavioral analysis note: extended repetition correlates with missed opportunities. Adjacent systems show price movements we could exploit.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_4", "candidate": "Veteran", "tier": "Mid", "text": "Captain, I respect the plan. But the best traders I\u2019ve known had a rule: never run the same route more than five times without scouting.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_4", "candidate": "Pathfinder", "tier": "Mid", "text": "I can hear the lane humming. Same frequency, same rhythm. Maybe it\u2019s time we played a different note.", "relationship_delta": 0 },
+
+    { "trigger": "MONOTONE_STREAK_5", "candidate": "Analyst", "tier": "Mid", "text": "Market dampening effect confirmed on our current route. Switching to a different commodity pair would immediately improve margins by an estimated twenty percent.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_5", "candidate": "Veteran", "tier": "Mid", "text": "Not trying to second-guess you, Captain. But there\u2019s a whole galaxy out there, and we\u2019re wearing a groove in one small part of it.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_5", "candidate": "Pathfinder", "tier": "Mid", "text": "Routine is comfortable. But comfort isn\u2019t why we\u2019re out here, is it? I spotted something interesting on the long-range scans. Worth a look.", "relationship_delta": 0 },
+
+    { "trigger": "MONOTONE_STREAK_6", "candidate": "Analyst", "tier": "Mid", "text": "Operational advisory: continuing this pattern yields geometrically decreasing returns. I recommend a strategic pivot to restore margin equilibrium.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_6", "candidate": "Veteran", "tier": "Mid", "text": "When I was green, my CO told me: if you\u2019re doing the same thing for the twentieth time, you\u2019re not being consistent \u2014 you\u2019re being lazy. Words to fly by.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_6", "candidate": "Pathfinder", "tier": "Mid", "text": "Captain, there\u2019s a whole constellation of untried routes between here and the border systems. Each one a story we haven\u2019t heard yet. Let\u2019s go listen.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_9", "candidate": "Analyst", "tier": "Early", "text": "Interesting price correlation: {GOOD} demand at the nearest station is inversely tracking supply two nodes over. Classic arbitrage window opening.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_9", "candidate": "Veteran", "tier": "Early", "text": "Just caught a patrol doing double sweeps near the border. When the navy doubles patrols, smart traders pay attention.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_9", "candidate": "Pathfinder", "tier": "Early", "text": "Something about this system feels different today. Warmer light, maybe. Or maybe I\u2019m just getting used to the view.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_10", "candidate": "Analyst", "tier": "Early", "text": "Our profit-per-jump ratio has stabilized. That\u2019s good for consistency but suggests we\u2019re approaching the ceiling for this route family.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_10", "candidate": "Veteran", "tier": "Early", "text": "Good sector for business. Clean lanes, decent margins, no one shooting at us. Days like this are the reason I signed on.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_10", "candidate": "Pathfinder", "tier": "Early", "text": "Every jump is a threshold, Captain. Same ship, different stars. I never get tired of that moment.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_11", "candidate": "Analyst", "tier": "Mid", "text": "Faction trade volumes are shifting. Someone is stockpiling. The data doesn\u2019t tell me who, but it tells me where. Could be opportunity.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_11", "candidate": "Veteran", "tier": "Mid", "text": "Been keeping an eye on the faction borders. Tensions aren\u2019t high, but they\u2019re not low either. Good time to build reputation while it\u2019s cheap.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_11", "candidate": "Pathfinder", "tier": "Mid", "text": "The deeper we go, the more connections I see. Trade lanes, faction borders, old ruins \u2014 everything\u2019s woven together. Beautiful, really.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_12", "candidate": "Analyst", "tier": "Mid", "text": "Credit velocity across the sector is increasing. More money changing hands means more opportunities for well-positioned traders. That\u2019s us.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_12", "candidate": "Veteran", "tier": "Mid", "text": "You know what separates a good captain from a great one? The great ones know when to push and when to consolidate. Read the room, act accordingly.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_12", "candidate": "Pathfinder", "tier": "Mid", "text": "I mapped three new stellar formations during our last transit. Not useful for trade, but worth knowing. The galaxy keeps surprising me.", "relationship_delta": 0 },
+
+    { "trigger": "SILENCE_BREAK_1", "candidate": "Analyst", "tier": "Early", "text": "Running the numbers on our recent trades. Efficiency is holding, but there might be better margins if we try a different route.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_1", "candidate": "Veteran", "tier": "Early", "text": "Quiet out here. Not complaining \u2014 quiet means safe. But keep your eyes open, Captain.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_1", "candidate": "Pathfinder", "tier": "Early", "text": "Stars look different from every angle. I keep noticing new patterns the longer we travel.", "relationship_delta": 0 },
+
+    { "trigger": "SILENCE_BREAK_2", "candidate": "Analyst", "tier": "Early", "text": "I\u2019ve been tracking commodity flows. Some goods are moving faster than others \u2014 worth keeping in mind for our next stop.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_2", "candidate": "Veteran", "tier": "Early", "text": "Reminds me of convoy runs back in the day. Long stretches of nothing, then everything happens at once. Stay ready.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_2", "candidate": "Pathfinder", "tier": "Early", "text": "I wonder what\u2019s out beyond the mapped lanes. There\u2019s always something just past the edge of what we know.", "relationship_delta": 0 },
+
+    { "trigger": "SILENCE_BREAK_3", "candidate": "Analyst", "tier": "Early", "text": "Our cargo hold utilization is at {CARGO_PCT}%. Optimal range is 70-90% \u2014 too full limits opportunistic buys, too empty wastes fuel.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_3", "candidate": "Veteran", "tier": "Early", "text": "Good ship, good captain, good route. That\u2019s the formula. We\u2019ve got two out of three at least.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_3", "candidate": "Pathfinder", "tier": "Early", "text": "Every station has a story if you know where to look. The architecture, the goods they stock, the ships at dock. All data.", "relationship_delta": 0 },
+
+    { "trigger": "SILENCE_BREAK_4", "candidate": "Analyst", "tier": "Early", "text": "Price spreads have been tightening on our usual goods. Might be time to diversify what we carry.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_4", "candidate": "Veteran", "tier": "Early", "text": "Fuel\u2019s holding steady. Engines sound clean. Nothing to report, which is the best kind of report.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_4", "candidate": "Pathfinder", "tier": "Early", "text": "There\u2019s a rhythm to the trade lanes. Ships come and go like tides. I find it calming.", "relationship_delta": 0 },
+
+    { "trigger": "SILENCE_BREAK_5", "candidate": "Analyst", "tier": "Early", "text": "Local market data suggests a supply imbalance forming. Nothing dramatic, but the trend is worth monitoring.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_5", "candidate": "Veteran", "tier": "Early", "text": "Seen a few more patrol ships than usual. Could be routine, could be something. I\u2019ll keep an ear on comms.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_5", "candidate": "Pathfinder", "tier": "Early", "text": "Do you ever think about what the builders of these stations were like? The scale of it \u2014 impressive.", "relationship_delta": 0 },
+
+    { "trigger": "SILENCE_BREAK_6", "candidate": "Analyst", "tier": "Early", "text": "Cross-referencing trade volumes with lane traffic. There may be an underserved route nearby.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_6", "candidate": "Veteran", "tier": "Early", "text": "The hull\u2019s taken some wear. Nothing critical, but we should think about repairs when we dock next.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_6", "candidate": "Pathfinder", "tier": "Early", "text": "I cataloged another stellar formation. Probably not worth a detour, but it\u2019s good to build the map.", "relationship_delta": 0 },
+
+    { "trigger": "SILENCE_BREAK_7", "candidate": "Analyst", "tier": "Early", "text": "Interesting \u2014 the station we just left updated their buy orders. Prices shifted since our last visit.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_7", "candidate": "Veteran", "tier": "Early", "text": "Smooth sailing, Captain. I\u2019ll take boring over exciting any day of the week.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_7", "candidate": "Pathfinder", "tier": "Early", "text": "The void between systems has its own kind of beauty. Cold, vast, indifferent. But honest.", "relationship_delta": 0 },
+
+    { "trigger": "SILENCE_BREAK_8", "candidate": "Analyst", "tier": "Early", "text": "Reviewing our profit trajectory. We\u2019re on an upward trend, but the rate of improvement is flattening. New opportunities needed.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_8", "candidate": "Veteran", "tier": "Early", "text": "Captain, if you\u2019re looking for action, I hear the border sectors have been seeing pirate activity. Your call.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_8", "candidate": "Pathfinder", "tier": "Early", "text": "Each jump teaches me something. Even the same route twice \u2014 the light\u2019s different, the traffic\u2019s different.", "relationship_delta": 0 },
+
+    { "trigger": "SILENCE_BREAK_9", "candidate": "Analyst", "tier": "Early", "text": "I\u2019ve identified a potential arbitrage window. Two adjacent stations with opposing supply pressures. Might be worth investigating.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_9", "candidate": "Veteran", "tier": "Early", "text": "Systems check complete. All green across the board. She\u2019s a reliable ship, this one.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_9", "candidate": "Pathfinder", "tier": "Early", "text": "Sometimes I look at the star map and wonder how many places we\u2019ll never visit. Makes the ones we do feel more important.", "relationship_delta": 0 },
+
+    { "trigger": "SILENCE_BREAK_10", "candidate": "Analyst", "tier": "Early", "text": "Quick observation: our most profitable trades correlate with longer jump distances. Risk-reward ratio at work.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_10", "candidate": "Veteran", "tier": "Early", "text": "Not much to report, Captain. Which is exactly how I like my shifts. Uneventful.", "relationship_delta": 0 },
+    { "trigger": "SILENCE_BREAK_10", "candidate": "Pathfinder", "tier": "Early", "text": "I\u2019ve been sketching the nebula formations we pass through. No practical value, but it keeps me sharp.", "relationship_delta": 0 },
+
+    { "trigger": "MONOTONE_STREAK_1", "candidate": "Analyst", "tier": "Early", "text": "We\u2019ve been running the same pattern for a while. The data suggests diminishing returns \u2014 consider varying our approach.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_1", "candidate": "Veteran", "tier": "Early", "text": "Captain, we\u2019re falling into a rut. I\u2019ve seen crews burn out on repetition. Mix it up when you can.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_1", "candidate": "Pathfinder", "tier": "Early", "text": "I\u2019m getting restless. We\u2019ve been doing the same thing for a while. There\u2019s a whole galaxy out there, Captain.", "relationship_delta": 0 },
+
+    { "trigger": "MONOTONE_STREAK_2", "candidate": "Analyst", "tier": "Early", "text": "Efficiency plateau detected. Our last several actions have been identical in type. Market conditions may favor a different approach.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_2", "candidate": "Veteran", "tier": "Early", "text": "You know what they say about doing the same thing and expecting different results. Just an observation.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_2", "candidate": "Pathfinder", "tier": "Early", "text": "The routine is comfortable, I\u2019ll grant that. But comfortable and exciting are rarely the same thing.", "relationship_delta": 0 },
+
+    { "trigger": "MONOTONE_STREAK_3", "candidate": "Analyst", "tier": "Early", "text": "Statistical anomaly: we\u2019ve been making the same type of decision repeatedly. Could indicate an overlooked opportunity elsewhere.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_3", "candidate": "Veteran", "tier": "Early", "text": "Steady hands are good, but so is adapting. The best captains I served with knew when to change course.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_3", "candidate": "Pathfinder", "tier": "Early", "text": "I\u2019ve mapped three adjacent systems we haven\u2019t visited yet. Just putting that out there.", "relationship_delta": 0 },
+
+    { "trigger": "MONOTONE_STREAK_4", "candidate": "Analyst", "tier": "Early", "text": "Pattern recognition alert: current behavior is highly repetitive. Exploring new markets could yield better risk-adjusted returns.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_4", "candidate": "Veteran", "tier": "Early", "text": "In the fleet, we called this a holding pattern. Fine for waiting, lousy for progress.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_4", "candidate": "Pathfinder", "tier": "Early", "text": "Every new jump could be the one that changes everything. We won\u2019t find out staying here.", "relationship_delta": 0 },
+
+    { "trigger": "MONOTONE_STREAK_5", "candidate": "Analyst", "tier": "Early", "text": "I\u2019ve run the optimization model. At our current pattern, marginal utility is approaching zero. Time for a strategy shift.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_5", "candidate": "Veteran", "tier": "Early", "text": "Captain, respectfully \u2014 we\u2019re spinning our wheels. I\u2019ve been around long enough to recognize it.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_5", "candidate": "Pathfinder", "tier": "Early", "text": "Repetition has its place, but discovery? That takes a different kind of courage. We\u2019ve got it, Captain.", "relationship_delta": 0 },
+
+    { "trigger": "MONOTONE_STREAK_6", "candidate": "Analyst", "tier": "Early", "text": "Final note on this: our competition isn\u2019t standing still while we repeat ourselves. Markets evolve. We should too.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_6", "candidate": "Veteran", "tier": "Early", "text": "Alright, Captain. Your ship, your call. But the galaxy isn\u2019t going to explore itself.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_6", "candidate": "Pathfinder", "tier": "Early", "text": "I trust your instincts, Captain. But my instincts say there\u2019s something better waiting for us out there.", "relationship_delta": 0 },
+
+    { "trigger": "MONOTONE_STREAK_7", "candidate": "Analyst", "tier": "Early", "text": "Diminishing returns confirmed. Each repeat of this action yields less marginal value than the last. The math is clear.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_7", "candidate": "Veteran", "tier": "Early", "text": "I\u2019ve watched crews get stuck in loops before. The ones who broke out went further than anyone expected.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_7", "candidate": "Pathfinder", "tier": "Early", "text": "There\u2019s a whole galaxy out there doing interesting things while we do... this. Again.", "relationship_delta": 0 },
+
+    { "trigger": "MONOTONE_STREAK_8", "candidate": "Analyst", "tier": "Early", "text": "I\u2019ve modeled six alternative strategies, all projecting higher returns. Shall I display the comparison?", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_8", "candidate": "Veteran", "tier": "Early", "text": "Discipline is a virtue. Stubbornness is a liability. Knowing the difference is what separates captains from crew.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_8", "candidate": "Pathfinder", "tier": "Early", "text": "Remember when we first launched? Everything was new. We can have that feeling again \u2014 just point the ship somewhere unfamiliar.", "relationship_delta": 0 },
+
+    { "trigger": "MONOTONE_STREAK_9", "candidate": "Analyst", "tier": "Early", "text": "Market dampening is accelerating on this route. Continued repetition will compress margins below operational cost threshold.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_9", "candidate": "Veteran", "tier": "Early", "text": "Captain, I\u2019m not one to question orders. But I am one to question strategy. This isn\u2019t one.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_9", "candidate": "Pathfinder", "tier": "Early", "text": "The threads are pulling us toward something new. Can you feel it? Or is that just me hoping?", "relationship_delta": 0 },
+
+    { "trigger": "MONOTONE_STREAK_10", "candidate": "Analyst", "tier": "Early", "text": "Data log shows our last twenty actions are statistically indistinguishable. I\u2019m flagging this as an optimization bottleneck.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_10", "candidate": "Veteran", "tier": "Early", "text": "Last thing I\u2019ll say about it: the galaxy rewards the bold. We\u2019re being anything but.", "relationship_delta": 0 },
+    { "trigger": "MONOTONE_STREAK_10", "candidate": "Pathfinder", "tier": "Early", "text": "I wonder what the other traders think when they see us doing the exact same thing over and over. Probably nothing flattering.", "relationship_delta": 0 },
+
+    { "trigger": "SILENCE_BREAK_20", "candidate": "Analyst", "tier": "Fracture", "text": "Reviewing our trajectory \u2014 we\u2019ve built something real here. The question is whether we optimize for stability or growth. Both have costs.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_20", "candidate": "Veteran", "tier": "Fracture", "text": "You know, Captain, most ships out here don\u2019t last as long as we have. That\u2019s not luck. That\u2019s leadership.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_20", "candidate": "Pathfinder", "tier": "Fracture", "text": "The lattice remembers everything that travels through it. I wonder what story it\u2019s telling about us.", "relationship_delta": 1 },
+
+    { "trigger": "AMBIENT_OBS_13", "candidate": "Analyst", "tier": "Early", "text": "Fuel consumption running 3% below projected baseline. Either we\u2019re flying efficient routes or the lanes are shorter than charted.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_13", "candidate": "Veteran", "tier": "Early", "text": "Weather report from the void: quiet. No contacts, no chatter. The kind of silence that either means peace or the calm before something.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_13", "candidate": "Pathfinder", "tier": "Early", "text": "I keep a mental map of everywhere we\u2019ve been. It\u2019s getting bigger. I like that.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_14", "candidate": "Analyst", "tier": "Early", "text": "Station traffic analysis shows cyclical patterns. Peak trading hours correlate with faction patrol schedules. Interesting dependency.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_14", "candidate": "Veteran", "tier": "Early", "text": "Hull integrity looks good. Engines are clean. Sometimes the best thing a captain can hear is \u2018nothing to report.\u2019", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_14", "candidate": "Pathfinder", "tier": "Early", "text": "Every system has a color, Captain. Not literally \u2014 but the way the light hits the stations, the star\u2019s tint. This one feels amber.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_15", "candidate": "Analyst", "tier": "Early", "text": "Price differentials between adjacent systems suggest untapped arbitrage. The margin exists; we just haven\u2019t exploited it yet.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_15", "candidate": "Veteran", "tier": "Early", "text": "Cargo bay is organized, weapons are maintained, ship is in good order. We\u2019re ready for whatever comes next.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_15", "candidate": "Pathfinder", "tier": "Early", "text": "I wonder how many traders pass through here and never stop to look out the viewport. The view is free, Captain.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_16", "candidate": "Analyst", "tier": "Early", "text": "NPC fleet movements suggest shifting demand patterns. Goods flowing toward the border regions are commanding premiums.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_16", "candidate": "Veteran", "tier": "Early", "text": "I\u2019ve been tracking the other ships in this sector. Most of them run the same routes day after day. We can do better.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_16", "candidate": "Pathfinder", "tier": "Early", "text": "A ship passed us on the last lane. Heading somewhere fast. Makes you wonder what they know that we don\u2019t.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_17", "candidate": "Analyst", "tier": "Mid", "text": "Cross-referencing our trade history with sector-wide data. Our per-credit efficiency is trending upward. The automation is paying dividends.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_17", "candidate": "Veteran", "tier": "Mid", "text": "I remember when a hundred credits felt like a fortune. Now it\u2019s fuel money. We\u2019ve come a long way, Captain.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_17", "candidate": "Pathfinder", "tier": "Mid", "text": "The stations we visit most often are starting to feel like home. Multiple homes, scattered across the stars. That\u2019s a kind of wealth too.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_18", "candidate": "Analyst", "tier": "Mid", "text": "Market volatility index is elevated in two adjacent systems. Could indicate faction activity or supply disruption. Worth monitoring.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_18", "candidate": "Veteran", "tier": "Mid", "text": "The more systems we\u2019ve visited, the clearer the picture gets. Every station tells part of the story. We\u2019re starting to read between the lines.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_18", "candidate": "Pathfinder", "tier": "Mid", "text": "I had a thought during the last transit. What if the lanes aren\u2019t just transportation? What if they\u2019re... communication?", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_19", "candidate": "Analyst", "tier": "Mid", "text": "Repair costs are trending predictably. If we schedule maintenance at haven between high-margin runs, the ratio optimizes itself.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_19", "candidate": "Veteran", "tier": "Mid", "text": "Ship\u2019s running well. A well-maintained vessel is a reliable vessel. My old CO drilled that into every recruit.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_19", "candidate": "Pathfinder", "tier": "Mid", "text": "I found a new constellation from this angle. Named it after the first station we docked at. Don\u2019t judge me.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_20", "candidate": "Analyst", "tier": "Mid", "text": "Sector economic health: moderate. Credit flow is stable, but concentration is increasing. The rich stations are getting richer.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_20", "candidate": "Veteran", "tier": "Mid", "text": "Some of these faction patrols are getting bolder. Wider routes, heavier ships. Either they\u2019re showing strength or they\u2019re scared. Hard to tell.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_20", "candidate": "Pathfinder", "tier": "Mid", "text": "Every time we dock somewhere new, I add a sketch to my journal. The collection is getting impressive, if I say so myself.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_21", "candidate": "Analyst", "tier": "Mid", "text": "I\u2019ve cataloged our knowledge discoveries against sector averages. We\u2019re in the top percentile for independent operators. Data doesn\u2019t lie.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_21", "candidate": "Veteran", "tier": "Mid", "text": "Captain, quick status: morale is high, supplies are adequate, and the horizon is clear. A good day in space.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_21", "candidate": "Pathfinder", "tier": "Mid", "text": "The way light bends near the lane threads... it\u2019s not just refraction. There\u2019s something deeper happening. Something alive.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_22", "candidate": "Analyst", "tier": "Mid", "text": "Interesting correlation: stations with higher trade volume also report fewer pirate incidents. Commerce creates its own security blanket.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_22", "candidate": "Veteran", "tier": "Mid", "text": "Every system has its character. The mining stations are no-nonsense. The trade hubs are chaotic. The border posts are tense. You learn to read them.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_22", "candidate": "Pathfinder", "tier": "Mid", "text": "I\u2019ve been listening to the engine harmonics during transit. They change depending on the lane. Like the ship is adapting to each thread.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_23", "candidate": "Analyst", "tier": "Fracture", "text": "Long-range sensor sweep complete. Mapping efficiency at 94%. The remaining 6% is in regions that resist standard scanning protocols.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_23", "candidate": "Veteran", "tier": "Fracture", "text": "We\u2019ve been out here long enough that the ship feels like an extension of myself. Not sure if that\u2019s healthy, but it\u2019s effective.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_23", "candidate": "Pathfinder", "tier": "Fracture", "text": "Captain, I think the lattice responds to us. Not to our ship \u2014 to our intentions. It sounds crazy, but watch the thread brightness next time we approach with purpose.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_24", "candidate": "Analyst", "tier": "Fracture", "text": "Our operational footprint now spans multiple faction territories. Diplomatic implications are non-trivial. We\u2019re becoming a factor in their calculations.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_24", "candidate": "Veteran", "tier": "Fracture", "text": "I\u2019ve served on bigger ships, but never one with more purpose. This crew of two is outperforming fleets. That means something.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_24", "candidate": "Pathfinder", "tier": "Fracture", "text": "The further we go, the more connected everything feels. Trade, faction politics, the lattice, the discoveries \u2014 all threads in the same tapestry.", "relationship_delta": 0 },
+
+    { "trigger": "MARKET_OPPORTUNITY_4", "candidate": "Analyst", "tier": "Early", "text": "Supply chain analysis flags a surplus at a nearby station. If we move quickly, the buy price should be favorable.", "relationship_delta": 0 },
+    { "trigger": "MARKET_OPPORTUNITY_4", "candidate": "Veteran", "tier": "Early", "text": "Word travels fast out here \u2014 a station nearby is sitting on excess inventory. Good time to stock up if we need it.", "relationship_delta": 0 },
+    { "trigger": "MARKET_OPPORTUNITY_4", "candidate": "Pathfinder", "tier": "Early", "text": "I overheard chatter about a glut at a station not far from here. Their loss, our opportunity.", "relationship_delta": 0 },
+
+    { "trigger": "MARKET_OPPORTUNITY_5", "candidate": "Analyst", "tier": "Mid", "text": "Demand spike detected in an adjacent system. Price elasticity suggests we could command premium rates for the right cargo.", "relationship_delta": 0 },
+    { "trigger": "MARKET_OPPORTUNITY_5", "candidate": "Veteran", "tier": "Mid", "text": "I know a shortage when I see one. The station next door is running low on essentials. That\u2019s where we should be heading.", "relationship_delta": 0 },
+    { "trigger": "MARKET_OPPORTUNITY_5", "candidate": "Pathfinder", "tier": "Mid", "text": "Something shifted in the trade winds. A nearby station\u2019s prices just jumped. Opportunity knocks, Captain.", "relationship_delta": 0 },
+
+    { "trigger": "MARKET_OPPORTUNITY_6", "candidate": "Analyst", "tier": "Mid", "text": "Multi-variable optimization suggests a three-station arbitrage loop with projected margins above our current route average.", "relationship_delta": 0 },
+    { "trigger": "MARKET_OPPORTUNITY_6", "candidate": "Veteran", "tier": "Mid", "text": "Three stations, three price differentials, all within jumping distance. It\u2019s almost too clean. I like it.", "relationship_delta": 0 },
+    { "trigger": "MARKET_OPPORTUNITY_6", "candidate": "Pathfinder", "tier": "Mid", "text": "I traced a route through three stations where every stop makes money. It\u2019s like the galaxy drew us a treasure map.", "relationship_delta": 0 },
+
+    { "trigger": "REWARD_MILESTONE_4", "candidate": "Analyst", "tier": "Mid", "text": "Portfolio review: our net worth has reached a significant threshold. Compound growth is now measurably accelerating our trajectory.", "relationship_delta": 1 },
+    { "trigger": "REWARD_MILESTONE_4", "candidate": "Veteran", "tier": "Mid", "text": "Another milestone, Captain. You\u2019re building something real out here. The kind of thing that lasts.", "relationship_delta": 1 },
+    { "trigger": "REWARD_MILESTONE_4", "candidate": "Pathfinder", "tier": "Mid", "text": "Look at how far we\u2019ve come! Remember when a single trade felt like a big deal? Now we\u2019re playing a bigger game.", "relationship_delta": 1 },
+
+    { "trigger": "REWARD_MILESTONE_5", "candidate": "Analyst", "tier": "Mid", "text": "Financial model updated. At current growth rate, our operational ceiling is expanding faster than our burn rate. Sustainable empire territory.", "relationship_delta": 1 },
+    { "trigger": "REWARD_MILESTONE_5", "candidate": "Veteran", "tier": "Mid", "text": "In the service, they\u2019d call this operational independence. No one tells us where to go or what to haul. We earned that.", "relationship_delta": 1 },
+    { "trigger": "REWARD_MILESTONE_5", "candidate": "Pathfinder", "tier": "Mid", "text": "Credits keep climbing. But you know what\u2019s really rich? The view from this cockpit. The credits just help us see more of it.", "relationship_delta": 1 },
+
+    { "trigger": "REWARD_MILESTONE_6", "candidate": "Analyst", "tier": "Fracture", "text": "Remarkable: our accumulated wealth exceeds the annual GDP of some smaller stations. We\u2019ve graduated from trader to economic force.", "relationship_delta": 1 },
+    { "trigger": "REWARD_MILESTONE_6", "candidate": "Veteran", "tier": "Fracture", "text": "Captain, we\u2019ve got enough credits to make admirals jealous. Use them wisely \u2014 money is just a tool, but it\u2019s a damn good one.", "relationship_delta": 1 },
+    { "trigger": "REWARD_MILESTONE_6", "candidate": "Pathfinder", "tier": "Fracture", "text": "We\u2019re wealthy by any measure now. But the real treasure is still out there \u2014 in the uncharted systems, the undiscovered signals, the stories untold.", "relationship_delta": 1 }
   ]
 }

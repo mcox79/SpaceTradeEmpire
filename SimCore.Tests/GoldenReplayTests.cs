@@ -11,9 +11,11 @@ namespace SimCore.Tests;
 
 public class GoldenReplayTests
 {
-    // GATE.T64: Audit_13 deep fixes — combat floor, early discovery, electronics pricing, FO reactions, friction sinks, ambient triggers.
+    // GATE.T69: Route diversity + competence margins + economy sinks + streak breaker tuning.
+    // fh_14: MarketTweaksV0 (decay 50, penalty 2000, variance 7000, decay mult 10),
+    // FleetUpkeepTweaksV0 (shuttle 20, tax 350, safety net 500), NarrativeTweaksV0 (silence 15, streak 10).
     private const string ExpectedGenesisHash = "BED5778DBDFBEFC7D68856473ED0602209348D4812670275C4914734E3E52283";
-    private const string ExpectedFinalHash = "6E646DBB17912FA1BECB1E032D5C539ADCA10B1A72DC5FA4A7971F516A350CC8";
+    private const string ExpectedFinalHash = "E85BD5205133088E1EE10B4B763007FBDA0EBD0F5A5285064B899C285118A7A8";
 
 
     private struct RecordedCommand

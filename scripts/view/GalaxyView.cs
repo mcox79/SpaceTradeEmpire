@@ -149,7 +149,7 @@ public partial class GalaxyView : Node3D
     [Export] public float DiscoverySiteOrbitRadiusU { get; set; } = 85.0f;
     [Export] public float StarVisualRadiusU { get; set; } = 20.0f;
     [Export] public float LaneGateMarkerRadiusU { get; set; } = 1.5f;
-    [Export] public float DiscoverySiteMarkerRadiusU { get; set; } = 1.0f;
+    [Export] public float DiscoverySiteMarkerRadiusU { get; set; } = 0.5f;
     // GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001
     // VISUAL_OVERHAUL: fleet orbit spread 1.5x.
     [Export] public float FleetOrbitRadiusU { get; set; } = 52.0f;

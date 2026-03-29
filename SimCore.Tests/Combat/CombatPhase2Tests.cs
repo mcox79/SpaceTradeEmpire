@@ -350,7 +350,8 @@ public sealed class CombatPhase2Tests
         // Round 2+ deals 0. So total damage across 50 rounds should be just round 1.
         Assert.That(result.Frames[0].AHeat, Is.EqualTo(200),
             "After round 1: 200 heat (200 generated, 0 cooled)");
-        Assert.That(result.RoundsPlayed, Is.EqualTo(CombatTweaksV0.StrategicMaxRounds),
+        int effectiveMax = System.Math.Min(CombatTweaksV0.StrategicMaxRounds, CombatDepthTweaksV0.MaxCombatRounds);
+        Assert.That(result.RoundsPlayed, Is.EqualTo(effectiveMax),
             "Locked-out fleet can't kill target, goes to max rounds");
     }
 

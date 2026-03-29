@@ -1977,7 +1977,15 @@ public static class GalaxyGenerator
             {
                 SlotId = "npc_weapon_1",
                 SlotKind = Entities.SlotKind.Weapon,
-                InstalledModuleId = "weapon_cannon_mk2",
+                InstalledModuleId = Content.WellKnownModuleIds.WeaponCannonMk2,
+            });
+            // GATE.T66.COMBAT.PIRATE_THREAT.001: Third weapon (energy) for mixed damage.
+            // Total: 12(K)+15(K)+10(E)=37 base/round — enough to punch through shield+armor to hull.
+            fleet.Slots.Add(new Entities.ModuleSlot
+            {
+                SlotId = "npc_weapon_2",
+                SlotKind = Entities.SlotKind.Weapon,
+                InstalledModuleId = Content.WellKnownModuleIds.WeaponLaserMk1,
             });
             state.Fleets[fleet.Id] = fleet;
         }
@@ -2056,7 +2064,14 @@ public static class GalaxyGenerator
         {
             SlotId = "npc_weapon_1",
             SlotKind = Entities.SlotKind.Weapon,
-            InstalledModuleId = "weapon_cannon_mk2",
+            InstalledModuleId = Content.WellKnownModuleIds.WeaponCannonMk2,
+        });
+        // GATE.T66.COMBAT.PIRATE_THREAT.001: Third weapon for starter pirate too.
+        starterFleet.Slots.Add(new Entities.ModuleSlot
+        {
+            SlotId = "npc_weapon_2",
+            SlotKind = Entities.SlotKind.Weapon,
+            InstalledModuleId = Content.WellKnownModuleIds.WeaponLaserMk1,
         });
         state.Fleets[starterFleet.Id] = starterFleet;
     }

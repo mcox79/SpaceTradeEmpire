@@ -134,7 +134,9 @@ public class LootTableSystemTests
             if (drop.Rarity == LootRarity.Uncommon)
             {
                 Assert.That(drop.Goods, Is.Not.Empty);
-                Assert.That(drop.Goods.Values.All(v => v == LootTweaksV0.UncommonGoodsQty), Is.True);
+                // Uncommon drops have one uncommon good at UncommonGoodsQty.
+                // Guaranteed scrap may also add fuel/ore at GuaranteedScrapQty.
+                Assert.That(drop.Goods.Values.Any(v => v == LootTweaksV0.UncommonGoodsQty), Is.True);
                 return;
             }
         }

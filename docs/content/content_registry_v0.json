@@ -389,6 +389,10 @@
       "base_damage": 12
     },
     {
+      "id": "weapon_cannon_mk2",
+      "base_damage": 15
+    },
+    {
       "id": "weapon_gauss_cannon_t2",
       "base_damage": 21
     },

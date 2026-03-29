@@ -21,9 +21,13 @@ const PRIORITY_CONFIG := {
 	"confirm": {"color": Color(0.3, 0.9, 0.4), "duration": 2.0, "persist": false, "icon": "[OK]"},
 	"milestone": {"color": Color(1.0, 0.85, 0.2), "duration": 4.0, "persist": false, "font_size": 15, "icon": "[*]"},
 	"cost": {"color": Color(0.9, 0.4, 0.3), "duration": 3.0, "persist": false, "icon": "[-]"},
-	"fo": {"color": Color(0.4, 0.8, 0.7), "duration": 5.0, "persist": false, "icon": "[FO]"},
+	"fo": {"color": Color(0.4, 0.6, 1.0), "duration": 5.0, "persist": false, "icon": "[FO]"},
 	"guide": {"color": Color(0.9, 0.7, 0.3), "duration": 0.0, "persist": true, "font_size": 14, "icon": "[?]"},
 	"discovery": {"color": Color(0.85, 0.75, 0.25), "duration": 5.0, "persist": false, "font_size": 14, "icon": "[~]"},
+	# GATE.T68.UI.TOAST_TYPES.001: Type-based color/icon differentiation.
+	"combat": {"color": Color(1.0, 0.3, 0.3), "duration": 4.0, "persist": false, "icon": "[!!]"},
+	"trade": {"color": Color(0.3, 1.0, 0.4), "duration": 3.0, "persist": false, "icon": "[$$]"},
+	"system": {"color": Color(1.0, 0.85, 0.3), "duration": 3.0, "persist": false, "icon": ""},
 }
 
 var _container: VBoxContainer = null
@@ -59,13 +63,37 @@ func show_toast(text: String, duration: float = 3.0) -> void:
 	show_priority_toast(text, "info", duration)
 
 
+## GATE.T68.UI.TOAST_TYPES.001: Show a toast with an explicit color override (hex string or Color).
+## Callers that already know the display color (e.g. economy alerts, rep changes) use this.
+func show_toast_colored(text: String, duration: float = 3.0, color = "#FFFFFF") -> void:
+	if _container == null:
+		return
+	var parsed_color: Color
+	if color is Color:
+		parsed_color = color
+	elif color is String:
+		parsed_color = Color(color) if Color.html_is_valid(color) else Color.WHITE
+	else:
+		parsed_color = Color.WHITE
+	# Build a one-off cfg matching the PRIORITY_CONFIG shape.
+	var cfg: Dictionary = {"color": parsed_color, "duration": duration, "persist": false, "icon": ""}
+	# Delegate to the priority toast pipeline so bundling/eviction work identically.
+	_show_with_cfg(text, cfg, duration)
+
+
 # GATE.S7.HUD_ARCH.TOAST_PRIORITY.001: Priority-aware toast with color border + bundling.
 func show_priority_toast(text: String, priority: String = "info", duration_override: float = -1.0) -> void:
 	if _container == null:
 		return
-
 	var cfg: Dictionary = PRIORITY_CONFIG.get(priority, PRIORITY_CONFIG["info"])
 	var duration: float = duration_override if duration_override > 0 else float(cfg["duration"])
+	_show_with_cfg(text, cfg, duration, priority)
+
+
+## GATE.T68.UI.TOAST_TYPES.001: Shared toast display pipeline — bundling, eviction, animation.
+func _show_with_cfg(text: String, cfg: Dictionary, duration: float, priority: String = "") -> void:
+	if _container == null:
+		return
 
 	# Bundling: if same text toast is already visible, increment count badge.
 	if _active_bundles.has(text) and is_instance_valid(_active_bundles[text].get("panel")):
@@ -186,7 +214,11 @@ func _create_priority_toast(text: String, cfg: Dictionary) -> PanelContainer:
 	var label := Label.new()
 	var icon: String = str(cfg.get("icon", ""))
 	label.text = ("%s %s" % [icon, text]).strip_edges() if not icon.is_empty() else text
-	label.add_theme_color_override("font_color", UITheme.TEXT_WHITE)
+	# GATE.T68.UI.TOAST_TYPES.001: Tint font color toward the priority color for readability.
+	var base_white: Color = Color(UITheme.TEXT_WHITE)
+	var priority_color: Color = Color(cfg.get("color", Color.WHITE))
+	var tinted: Color = base_white.lerp(priority_color, 0.35)
+	label.add_theme_color_override("font_color", tinted)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.custom_minimum_size = Vector2(220, 0)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL

@@ -551,11 +551,13 @@ SimCore/Systems/ShipyardSystem.cs:1.0f
 
 # GATE.T61.SALVAGE.LOOT_TABLE.001: structural literals (Count > 0 guard, Sum() > 0 check,
 # +1 inclusive range, 10000 bps identity, techRange > 0 guard, 10000UL rarity roll range, /100 pct calc)
-# Also: >> 8/16 bit shifts for deterministic hash mixing in RollLoot rarity tiers.
+# Also: >> 8/16/24 bit shifts for deterministic hash mixing in RollLoot rarity tiers.
+# GATE.T67.COMBAT.LOOT_FLOOR.001: >> 24 bit shift for guaranteed scrap index.
 SimCore/Systems/LootTableSystem.cs:0
 SimCore/Systems/LootTableSystem.cs:1
 SimCore/Systems/LootTableSystem.cs:8
 SimCore/Systems/LootTableSystem.cs:16
+SimCore/Systems/LootTableSystem.cs:24
 SimCore/Systems/LootTableSystem.cs:10000
 SimCore/Systems/LootTableSystem.cs:10000UL
 SimCore/Systems/LootTableSystem.cs:100

@@ -31,5 +31,8 @@ public sealed class ScanDiscoveryCommand : ICommand
             IntelSystem.ApplyAnalyze(state, playerFleetId, DiscoveryId);
         }
         // Analyzed: no-op
+
+        // fh_14: Track player decisions for FO silence fallback.
+        if (state.FirstOfficer != null) state.FirstOfficer.DecisionsSinceLastLine++;
     }
 }

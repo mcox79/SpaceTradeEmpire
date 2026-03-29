@@ -80,6 +80,11 @@ const AI_AGGRO_RANGE: float = 60.0
 
 var _turret_cooldown: float = 0.0
 var _ai_fire_cooldown: float = 0.0
+# GATE.T68.PERF.FPS_V2.001: Throttle hostile proximity check for ambient ducking.
+var _ambient_duck_timer: float = 0.0
+var _ambient_hostiles_near: bool = false
+# GATE.T68.PERF.FPS_V2.001: Cached bridge reference (avoid get_node_or_null per frame).
+var _bridge_ref = null
 var _bullet_scene: PackedScene = null
 
 # GATE.S1.AUDIO.SFX_CORE.001: Procedural synth audio players.
@@ -242,6 +247,8 @@ func _ready():
 	# GATE.T46.STEAM.ACHIEVEMENT_BRIDGE.001: Wire achievement mapper after Steam init.
 	_init_achievement_mapper_v0()
 
+	# GATE.T68.PERF.FPS_V2.001: Cache bridge reference early.
+	_bridge_ref = get_node_or_null("/root/SimBridge")
 	# GATE.S7.MAIN_MENU.SCENE.001: Skip gameplay wiring on main menu.
 	if _is_main_menu_active():
 		return
@@ -316,8 +323,8 @@ func _show_onboarding_toasts_deferred_v0() -> void:
 	if not _is_new_game:
 		var toast_mgr = get_node_or_null("/root/ToastManager")
 		await get_tree().create_timer(1.0).timeout
-		if toast_mgr and toast_mgr.has_method("show_toast"):
-			toast_mgr.call("show_toast", "Welcome back, Captain.", 4.0)
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+			toast_mgr.call("show_priority_toast", "Welcome back, Captain.", "fo", 4.0)
 		return
 	# Activate intro mode — suppresses gameplay (AI fire, NPC movement, combat music).
 	intro_active = true
@@ -508,8 +515,8 @@ func _try_autosave_v0() -> void:
 	bridge.call("AutoSaveV0")
 	_autosave_cooldown = AUTOSAVE_COOLDOWN_SEC
 	var toast_mgr = get_node_or_null("/root/ToastManager")
-	if toast_mgr and toast_mgr.has_method("show_toast"):
-		toast_mgr.call("show_toast", "Auto-saved", 1.5)
+	if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+		toast_mgr.call("show_priority_toast", "Auto-saved", "system", 1.5)
 	print("UUIR|AUTO_SAVE")
 
 func _process(delta):
@@ -575,9 +582,13 @@ func _process(delta):
 		elif not _thrust_on and _sfx_engine_thrust.playing:
 			_sfx_engine_thrust.stop()
 	# GATE.S1.AUDIO.AMBIENT.001: duck ambient during combat
+	# GATE.T68.PERF.FPS_V2.001: Throttle hostile check to 0.5s (was every frame).
 	if _sfx_ambient_drone:
-		var _hostiles_near := _find_nearest_fleet_v0(AI_AGGRO_RANGE) != null
-		_sfx_ambient_drone.volume_db = -24.0 if _hostiles_near else -18.0
+		_ambient_duck_timer += float(delta)
+		if _ambient_duck_timer >= 0.5:
+			_ambient_duck_timer = 0.0
+			_ambient_hostiles_near = _find_nearest_fleet_v0(AI_AGGRO_RANGE) != null
+		_sfx_ambient_drone.volume_db = -24.0 if _ambient_hostiles_near else -18.0
 	# AI auto-fire at player when in range; check for death after each shot
 	if current_player_state == PlayerShipState.IN_FLIGHT and _ai_fire_cooldown <= 0.0:
 		_ai_fire_v0()
@@ -587,9 +598,9 @@ func _process(delta):
 		_fire_turret_v0()
 
 	# Shield regen: 5 HP/sec for player fleet (SimBridge handles clamping to max)
-	var bridge_regen = get_node_or_null("/root/SimBridge")
-	if bridge_regen and bridge_regen.has_method("TickShieldRegenV0"):
-		bridge_regen.call("TickShieldRegenV0", PLAYER_FLEET_ID, float(delta))
+	# GATE.T68.PERF.FPS_V2.001: Use cached bridge ref (was get_node_or_null every frame).
+	if _bridge_ref and _bridge_ref.has_method("TickShieldRegenV0"):
+		_bridge_ref.call("TickShieldRegenV0", PLAYER_FLEET_ID, float(delta))
 
 	# Camera follows transit marker during lane travel.
 	if current_player_state == PlayerShipState.IN_LANE_TRANSIT and _transit_marker and is_instance_valid(_transit_marker):
@@ -799,8 +810,8 @@ func _cycle_data_overlay_v0() -> void:
 	# Show toast feedback.
 	var names: Dictionary = {-1: "Off", 0: "Security", 1: "Trade Flow", 2: "Intel Age"}
 	var toast_mgr = get_node_or_null("/root/ToastManager")
-	if toast_mgr and toast_mgr.has_method("show_toast"):
-		toast_mgr.call("show_toast", "Overlay: " + names.get(next, "Off"), 1.5)
+	if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+		toast_mgr.call("show_priority_toast", "Overlay: " + names.get(next, "Off"), "system", 1.5)
 	# Update HUD overlay label.
 	var hud_v = get_tree().root.find_child("HUD", true, false)
 	if hud_v and hud_v.has_method("set_data_overlay_label_v0"):
@@ -2183,6 +2194,10 @@ func despawn_fleet_v0(fleet_id: String) -> void:
 			if ExplosionVfx and ExplosionVfx.has_method("spawn"):
 				var vfx_parent = node.get_parent() if node.get_parent() else get_tree().root
 				ExplosionVfx.call("spawn", vfx_parent, node.global_position)
+			# GATE.T68.VFX.COMBAT_FEEDBACK.001: Show kill banner on NPC destroy.
+			var hud_node = get_node_or_null("/root/Main/HUD")
+			if hud_node and hud_node.has_method("show_kill_banner_v0"):
+				hud_node.call("show_kill_banner_v0")
 			node.remove_from_group("FleetShip")  # Immediate removal stops AI targeting
 			node.queue_free()
 			return
@@ -3151,10 +3166,10 @@ func _poll_toast_events_v0() -> void:
 
 		# Detect research completion: was researching, now not (or tech changed)
 		if _last_research_active and not is_researching and not _last_research_tech_id.is_empty():
-			toast_mgr.call("show_toast", "Research complete: %s!" % _last_research_tech_id, 5.0)
+			toast_mgr.call("show_priority_toast", "Research complete: %s!" % _last_research_tech_id, "system", 5.0)
 		# Detect new research started
 		elif not _last_research_active and is_researching and not tech_id.is_empty():
-			toast_mgr.call("show_toast", "Researching: %s" % tech_id, 3.0)
+			toast_mgr.call("show_priority_toast", "Researching: %s" % tech_id, "system", 3.0)
 
 		_last_research_active = is_researching
 		_last_research_tech_id = tech_id
@@ -3171,7 +3186,7 @@ func _poll_toast_events_v0() -> void:
 			var _pti: int = display_name.find("(")
 			if _pti > 0:
 				display_name = display_name.substr(0, _pti).strip_edges()
-			toast_mgr.call("show_toast", "Arrived at %s" % display_name, 2.5)
+			toast_mgr.call("show_priority_toast", "Arrived at %s" % display_name, "system", 2.5)
 		_last_player_node_id = node_id
 
 	# GATE.S7.FACTION.REP_TOAST.001: Rep change toast (threshold >= 5 points)
@@ -3209,7 +3224,7 @@ func _poll_toast_events_v0() -> void:
 			var units: int = int(latest.get("units", 0))
 			var fine: int = int(latest.get("fine_credits", 0))
 			var msg: String = "CONFISCATED: %d %s seized, %d cr fine" % [units, good_id, fine]
-			toast_mgr.call("show_toast", msg, 5.0)
+			toast_mgr.call("show_priority_toast", msg, "combat", 5.0)
 		_last_confiscation_count = count
 
 	# GATE.S7.INSTABILITY_EFFECTS.BRIDGE.001: Phase transition toast when node instability changes.
@@ -3222,7 +3237,7 @@ func _poll_toast_events_v0() -> void:
 			if _last_instability_phases.has(cur_node):
 				var prev_phase: String = str(_last_instability_phases[cur_node])
 				if prev_phase != phase:
-					toast_mgr.call("show_toast", "Instability shift: %s -> %s" % [prev_phase, phase], 4.0)
+					toast_mgr.call("show_priority_toast", "Instability shift: %s -> %s" % [prev_phase, phase], "system", 4.0)
 			_last_instability_phases[cur_node] = phase
 
 	# L3.2: Price alert toasts — notify when cargo goods rise in price at known stations.
@@ -3255,7 +3270,7 @@ func _poll_toast_events_v0() -> void:
 			if _best_delta > 0 and not _best_good.is_empty():
 				var _pa_display: String = _best_good.replace("_", " ").capitalize()
 				if toast_mgr.has_method("show_priority_toast"):
-					toast_mgr.call("show_priority_toast", "Price Alert: %s up to %d cr (+%d)" % [_pa_display, _best_price, _best_delta], "info", 4.0)
+					toast_mgr.call("show_priority_toast", "Price Alert: %s up to %d cr (+%d)" % [_pa_display, _best_price, _best_delta], "trade", 4.0)
 				else:
 					toast_mgr.call("show_toast", "Price Alert: %s up to %d cr (+%d)" % [_pa_display, _best_price, _best_delta], 4.0)
 				_last_price_alert_tick = _pa_tick
@@ -3534,8 +3549,8 @@ func _try_haven_arrival_cinematic_v0(arrived_node_id: String, bridge_ref: Node) 
 
 	# --- FO toast: "Welcome home, Captain." ---
 	var ha_toast_mgr = get_node_or_null("/root/ToastManager")
-	if ha_toast_mgr and ha_toast_mgr.has_method("show_toast"):
-		ha_toast_mgr.call("show_toast", "Welcome home, Captain.", 3.5)
+	if ha_toast_mgr and ha_toast_mgr.has_method("show_priority_toast"):
+		ha_toast_mgr.call("show_priority_toast", "Welcome home, Captain.", "fo", 3.5)
 
 
 # GATE.S8.HAVEN.COMING_HOME.001: Haven dock cinematic — camera pullback + sweep on first dock.
@@ -3773,13 +3788,13 @@ func _poll_auto_loot_v0() -> void:
 
 		# Show toast for collected loot.
 		var toast_mgr = get_node_or_null("/root/ToastManager")
-		if toast_mgr and toast_mgr.has_method("show_toast_colored"):
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
 			var msg := "Loot collected!"
 			if credits > 0:
 				msg = "Collected %d credits!" % credits
 			elif goods > 0:
 				msg = "Salvage collected!"
-			toast_mgr.call("show_toast_colored", msg, 2.5, "#22CCFF")
+			toast_mgr.call("show_priority_toast", msg, "combat", 2.5)
 
 # GATE.T59.DISC_VIZ.TUTORIAL_BEAT.001: Expose first-scan-complete flag for FO tutorial beat.
 func is_first_scan_complete_v0() -> bool:

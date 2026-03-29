@@ -101,6 +101,17 @@ public static class LootTableSystem
                 break;
         }
 
+        // GATE.T67.COMBAT.LOOT_FLOOR.001: Guaranteed minimum scrap on every kill.
+        // FTL pattern: every combat yields at least basic salvage.
+        if (LootTweaksV0.GuaranteedScrapQty > 0 && LootTweaksV0.GuaranteedScrapPool.Length > 0)
+        {
+            int scrapIdx = (int)((rewardHash >> 24) % (ulong)LootTweaksV0.GuaranteedScrapPool.Length); // STRUCTURAL: bit-shift for hash index
+            string scrapGoodId = LootTweaksV0.GuaranteedScrapPool[scrapIdx];
+            drop.Goods.TryGetValue(scrapGoodId, out int existingScrap);
+            if (existingScrap < LootTweaksV0.GuaranteedScrapQty)
+                drop.Goods[scrapGoodId] = LootTweaksV0.GuaranteedScrapQty;
+        }
+
         state.LootDrops[drop.Id] = drop;
     }
 
@@ -233,6 +244,16 @@ public static class LootTableSystem
         {
             drop.Goods.TryGetValue(Content.WellKnownGoodIds.Composites, out int existingComp);
             drop.Goods[Content.WellKnownGoodIds.Composites] = existingComp + compQty;
+        }
+
+        // GATE.T67.COMBAT.LOOT_FLOOR.001: Guaranteed minimum scrap on every kill.
+        if (LootTweaksV0.GuaranteedScrapQty > 0 && LootTweaksV0.GuaranteedScrapPool.Length > 0)
+        {
+            int scrapIdx = (int)((hash >> 24) % (ulong)LootTweaksV0.GuaranteedScrapPool.Length); // STRUCTURAL: bit-shift for hash index
+            string scrapGoodId = LootTweaksV0.GuaranteedScrapPool[scrapIdx];
+            drop.Goods.TryGetValue(scrapGoodId, out int existingScrap);
+            if (existingScrap < LootTweaksV0.GuaranteedScrapQty)
+                drop.Goods[scrapGoodId] = LootTweaksV0.GuaranteedScrapQty;
         }
 
         // Cargo spillage: drop a percentage of the fleet's cargo.

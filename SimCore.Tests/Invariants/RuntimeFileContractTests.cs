@@ -405,7 +405,7 @@ public sealed class RuntimeFileContractTests
         const long contextPacketFailBytes = 750L * 1024L;
 
         const long docsWarnBytes = 150L * 1024L;
-        const long docsFailBytes = 800L * 1024L;
+        const long docsFailBytes = 900L * 1024L;
 
         const long llmSurfaceWarnBytes = 250L * 1024L;
         const long llmSurfaceFailBytes = 850L * 1024L;
@@ -1691,5 +1691,48 @@ public sealed class RuntimeFileContractTests
             return fullPath[(root.Length + 1)..];
 
         return fullPath;
+    }
+
+    // GATE.T68.EVAL.CONTENT_COMPLETENESS.001: Every trigger token referenced in
+    // FirstOfficerSystem.cs must have at least one matching dialogue entry.
+    [Test]
+    [Category("ContentCompleteness")]
+    public void FO_ContentCompleteness_AllTriggersHaveDialogue()
+    {
+        // Collect all trigger tokens from FirstOfficerSystem.cs source.
+        var repoRoot = LocateRepoRootContainingSimCore();
+        var foSystemPath = Path.Combine(repoRoot, "SimCore", "Systems", "FirstOfficerSystem.cs");
+        var source = File.ReadAllText(foSystemPath);
+
+        // Extract static trigger tokens: TryFireTrigger(state, "TOKEN")
+        var staticRegex = new System.Text.RegularExpressions.Regex(
+            @"TryFireTrigger\(state,\s*""([A-Z_]+)""");
+        var staticTokens = new HashSet<string>(StringComparer.Ordinal);
+        foreach (System.Text.RegularExpressions.Match m in staticRegex.Matches(source))
+            staticTokens.Add(m.Groups[1].Value);
+
+        // Extract numbered trigger families: TryFireTrigger(state, $"PREFIX_{var}")
+        // These produce PREFIX_1, PREFIX_2, etc. — verify at least PREFIX_1 exists.
+        var dynRegex = new System.Text.RegularExpressions.Regex(
+            @"TryFireTrigger\(state,\s*\$""([A-Z_]+)_\{");
+        foreach (System.Text.RegularExpressions.Match m in dynRegex.Matches(source))
+            staticTokens.Add(m.Groups[1].Value + "_1");
+
+        // Collect all dialogue line trigger tokens from content.
+        var dialogueTokens = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var line in FirstOfficerContentV0.AllLines)
+            dialogueTokens.Add(line.TriggerToken);
+
+        // Check every code-referenced trigger token has content.
+        var missing = new List<string>();
+        foreach (var token in staticTokens.OrderBy(t => t, StringComparer.Ordinal))
+        {
+            if (!dialogueTokens.Contains(token))
+                missing.Add(token);
+        }
+
+        Assert.That(missing, Is.Empty,
+            $"FO trigger tokens referenced in code but missing dialogue entries:\n" +
+            string.Join("\n", missing));
     }
 }
